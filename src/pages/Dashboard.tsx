@@ -8,7 +8,7 @@ type ResumenAutoevaluacion = {
   id: string
   fecha: string
   estado: 'borrador' | 'finalizada'
-  servicio_habilitado: { nombre: string } | null
+  servicio_res1732: { nombre: string } | null
   usuario: { nombre: string } | null
 }
 
@@ -42,7 +42,7 @@ export default function Dashboard() {
           supabase.from('autoevaluaciones').select('*', { count: 'exact', head: true }).eq('estado', 'borrador'),
           supabase
             .from('autoevaluaciones')
-            .select('id, fecha, estado, servicio_habilitado:servicios_habilitados(nombre), usuario:profiles(nombre)')
+            .select('id, fecha, estado, servicio_res1732:servicios_res1732(nombre), usuario:profiles(nombre)')
             .order('creado_en', { ascending: false })
             .limit(6),
         ])
@@ -122,7 +122,7 @@ export default function Dashboard() {
                     className="flex w-full items-center justify-between py-3 text-left text-sm hover:bg-slate-50"
                   >
                     <span className="font-medium text-slate-700">
-                      {r.servicio_habilitado?.nombre ?? 'Servicio sin definir'}
+                      {r.servicio_res1732?.nombre ?? 'Servicio sin definir'}
                     </span>
                     <span className="text-slate-500">{r.usuario?.nombre ?? '—'}</span>
                     <span className={r.estado === 'borrador' ? 'text-amber-600' : 'text-emerald-600'}>

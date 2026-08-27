@@ -8,7 +8,10 @@ create table autoevaluaciones (
   lugar text,
   fecha date not null default current_date,
   usuario_id uuid not null references profiles(id),
-  servicio_habilitado_id bigint not null references servicios_habilitados(id),
+  -- Servicio = columna G del Excel (39 valores reales, tabla servicios_res1732).
+  -- La Sede es un campo independiente de la cabecera, no del catálogo de
+  -- servicios (corrección 2026-08-27 tras feedback del cliente).
+  servicio_res1732_id bigint not null references servicios_res1732(id),
   grupo_filtro text,
   modalidad_filtro text,
   complejidad_filtro text,
@@ -18,7 +21,7 @@ create table autoevaluaciones (
 );
 
 create index on autoevaluaciones (usuario_id);
-create index on autoevaluaciones (servicio_habilitado_id);
+create index on autoevaluaciones (servicio_res1732_id);
 create index on autoevaluaciones (estado);
 
 create table autoevaluaciones_respuestas (

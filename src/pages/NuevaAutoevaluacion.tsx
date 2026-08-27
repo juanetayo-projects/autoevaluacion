@@ -8,19 +8,13 @@ import { Boton, Card, PageHeader, Spinner } from '../components/ui/ui'
 
 type Empresa = { id: number; nombre: string }
 type Sede = { id: number; nombre: string; empresa_id: number }
-type ServicioHabilitado = {
+type ServicioRes1732 = {
   id: number
   nombre: string
-  sede_id: number
-  servicio_res1732_id: number
-  servicio_res1732: {
-    id: number
-    nombre: string
-    descripcion: string | null
-    estructura: string | null
-    grupo_res1732_id: number
-    grupo_res1732: { nombre: string } | null
-  } | null
+  descripcion: string | null
+  estructura: string | null
+  grupo_res1732_id: number
+  grupo_res1732: { nombre: string } | null
 }
 type Criterio = {
   id: number
@@ -60,13 +54,14 @@ export default function NuevaAutoevaluacion() {
 
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [sedes, setSedes] = useState<Sede[]>([])
-  const [serviciosHabilitados, setServiciosHabilitados] = useState<ServicioHabilitado[]>([])
+  // Servicio = columna G del Excel (39 valores reales, tabla servicios_res1732).
+  const [serviciosRes, setServiciosRes] = useState<ServicioRes1732[]>([])
 
   const [empresaId, setEmpresaId] = useState<number | null>(null)
   const [sedeId, setSedeId] = useState<number | null>(null)
   const [lugar, setLugar] = useState('')
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
-  const [servicioHabilitadoId, setServicioHabilitadoId] = useState<number | null>(null)
+  const [servicioResId, setServicioResId] = useState<number | null>(null)
 
   const [modalidades, setModalidades] = useState<string[]>([])
   const [complejidades, setComplejidades] = useState<string[]>([])
@@ -83,7 +78,7 @@ export default function NuevaAutoevaluacion() {
   const [compromisos, setCompromisos] = useState<Record<number, Compromiso>>({})
   const [enviandoCierre, setEnviandoCierre] = useState(false)
 
-  const servicioSeleccionado = serviciosHabilitados.find((s) => s.id === servicioHabilitadoId)
+  const servicioSeleccionado = serviciosRes.find((s) => s.id === servicioResId)
 
   useEffect(() => {
     cargarCatalogos()
@@ -96,20 +91,18 @@ export default function NuevaAutoevaluacion() {
   }, [id])
 
   async function cargarCatalogos() {
-    const [{ data: emp }, { data: sed }, { data: sh }] = await Promise.all([
+    const [{ data: emp }, { data: sed }, { data: sr }] = await Promise.all([
       supabase.from('empresas').select('*').order('nombre'),
       supabase.from('sedes').select('*').order('nombre'),
       supabase
-        .from('servicios_habilitados')
-        .select(
-          'id, nombre, sede_id, servicio_res1732_id, servicio_res1732:servicios_res1732(id, nombre, descripcion, estructura, grupo_res1732_id, grupo_res1732:grupos_res1732(nombre))',
-        )
-        .eq('activo', true)
+        .from('servicios_res1732')
+        .select('id, nombre, descripcion, estructura, grupo_res1732_id, grupo_res1732:grupos_res1732(nombre)')
+        .neq('numeral', '5')
         .order('nombre'),
     ])
     setEmpresas((emp as Empresa[]) ?? [])
     setSedes((sed as Sede[]) ?? [])
-    setServiciosHabilitados((sh as unknown as ServicioHabilitado[]) ?? [])
+    setServiciosRes((sr as unknown as ServicioRes1732[]) ?? [])
     if (emp && emp.length > 0) setEmpresaId(emp[0].id)
   }
 
@@ -124,7 +117,7 @@ export default function NuevaAutoevaluacion() {
     setSedeId(cab.sede_id)
     setLugar(cab.lugar ?? '')
     setFecha(cab.fecha)
-    setServicioHabilitadoId(cab.servicio_habilitado_id)
+    setServicioResId(cab.servicio_res1732_id)
     setModalidadFiltro(cab.modalidad_filtro ?? TODAS)
     setComplejidadFiltro(cab.complejidad_filtro ?? TODAS)
     setEstado(cab.estado)
@@ -139,42 +132,31 @@ export default function NuevaAutoevaluacion() {
     }
     setRespuestas(mapa)
 
-    await buscarCriterios(cab.servicio_habilitado_id, cab.modalidad_filtro ?? TODAS, cab.complejidad_filtro ?? TODAS)
+    await buscarCriterios(cab.servicio_res1732_id, cab.modalidad_filtro ?? TODAS, cab.complejidad_filtro ?? TODAS)
     setPaso('responder')
     setCargandoInicial(false)
   }
 
-  async function alSeleccionarServicio(shId: number) {
-    setServicioHabilitadoId(shId)
-    const sh = serviciosHabilitados.find((s) => s.id === shId)
-    if (sh) setSedeId(sh.sede_id)
+  async function alSeleccionarServicio(servicioId: number) {
+    setServicioResId(servicioId)
     setModalidadFiltro(TODAS)
     setComplejidadFiltro(TODAS)
-    if (!sh?.servicio_res1732_id) return
 
     const universalId = await obtenerServicioUniversalId()
     const { data } = await supabase
       .from('criterios_res1732')
       .select('modalidad, complejidad')
-      .in('servicio_res1732_id', [sh.servicio_res1732_id, universalId].filter(Boolean) as number[])
+      .in('servicio_res1732_id', [servicioId, universalId].filter(Boolean) as number[])
     const mods = Array.from(new Set((data ?? []).map((r) => r.modalidad).filter(Boolean))) as string[]
     const comps = Array.from(new Set((data ?? []).map((r) => r.complejidad).filter(Boolean))) as string[]
     setModalidades(mods.sort())
     setComplejidades(comps.sort())
   }
 
-  async function buscarCriterios(shId: number, modalidad: string, complejidad: string) {
+  async function buscarCriterios(servicioId: number, modalidad: string, complejidad: string) {
     setCargandoCriterios(true)
-    // No depender del estado `serviciosHabilitados` (puede no estar cargado
-    // aún al reabrir un borrador) — se resuelve directo contra la BD.
-    const { data: sh } = await supabase
-      .from('servicios_habilitados')
-      .select('servicio_res1732_id')
-      .eq('id', shId)
-      .single()
-    const servicioGenericoId = sh?.servicio_res1732_id
     const universalId = await obtenerServicioUniversalId()
-    const idsServicio = [servicioGenericoId, universalId].filter(Boolean) as number[]
+    const idsServicio = [servicioId, universalId].filter(Boolean) as number[]
 
     let query = supabase
       .from('criterios_res1732')
@@ -195,9 +177,9 @@ export default function NuevaAutoevaluacion() {
   }
 
   async function iniciar() {
-    if (!empresaId || !sedeId || !servicioHabilitadoId || !perfil) return
+    if (!empresaId || !sedeId || !servicioResId || !perfil) return
     if (autoevaluacionId) {
-      await buscarCriterios(servicioHabilitadoId, modalidadFiltro, complejidadFiltro)
+      await buscarCriterios(servicioResId, modalidadFiltro, complejidadFiltro)
       setPaso('responder')
       return
     }
@@ -209,7 +191,7 @@ export default function NuevaAutoevaluacion() {
         lugar,
         fecha,
         usuario_id: perfil.id,
-        servicio_habilitado_id: servicioHabilitadoId,
+        servicio_res1732_id: servicioResId,
         modalidad_filtro: modalidadFiltro === TODAS ? null : modalidadFiltro,
         complejidad_filtro: complejidadFiltro === TODAS ? null : complejidadFiltro,
         estado: 'borrador',
@@ -218,7 +200,7 @@ export default function NuevaAutoevaluacion() {
       .single()
     if (error || !data) return
     setAutoevaluacionId(data.id)
-    await buscarCriterios(servicioHabilitadoId, modalidadFiltro, complejidadFiltro)
+    await buscarCriterios(servicioResId, modalidadFiltro, complejidadFiltro)
     setPaso('responder')
   }
 
@@ -378,12 +360,12 @@ export default function NuevaAutoevaluacion() {
             </Campo>
             <Campo label="Servicio" className="sm:col-span-2">
               <select
-                value={servicioHabilitadoId ?? ''}
+                value={servicioResId ?? ''}
                 onChange={(e) => alSeleccionarServicio(Number(e.target.value))}
                 className="campo"
               >
                 <option value="">Selecciona…</option>
-                {serviciosHabilitados.map((s) => (
+                {serviciosRes.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre}
                   </option>
@@ -393,7 +375,7 @@ export default function NuevaAutoevaluacion() {
             {servicioSeleccionado && (
               <Campo label="Grupo" className="sm:col-span-2">
                 <div className="campo bg-slate-50 text-slate-500">
-                  {servicioSeleccionado.servicio_res1732?.grupo_res1732?.nombre ?? '—'}
+                  {servicioSeleccionado.grupo_res1732?.nombre ?? '—'}
                 </div>
               </Campo>
             )}
@@ -422,11 +404,7 @@ export default function NuevaAutoevaluacion() {
               </select>
             </Campo>
           </div>
-          <Boton
-            onClick={iniciar}
-            disabled={!empresaId || !sedeId || !servicioHabilitadoId}
-            className="mt-6 w-full"
-          >
+          <Boton onClick={iniciar} disabled={!empresaId || !sedeId || !servicioResId} className="mt-6 w-full">
             Continuar
           </Boton>
         </Card>
@@ -532,11 +510,11 @@ export default function NuevaAutoevaluacion() {
 
       <Card className="mb-4">
         <div className="text-lg font-bold text-azul">{servicioSeleccionado?.nombre}</div>
-        {servicioSeleccionado?.servicio_res1732?.descripcion && (
-          <p className="mt-1 text-sm text-slate-600">{servicioSeleccionado.servicio_res1732.descripcion}</p>
+        {servicioSeleccionado?.descripcion && (
+          <p className="mt-1 text-sm text-slate-600">{servicioSeleccionado.descripcion}</p>
         )}
-        {servicioSeleccionado?.servicio_res1732?.estructura && (
-          <p className="mt-2 text-xs text-slate-500">{servicioSeleccionado.servicio_res1732.estructura}</p>
+        {servicioSeleccionado?.estructura && (
+          <p className="mt-2 text-xs text-slate-500">{servicioSeleccionado.estructura}</p>
         )}
       </Card>
 

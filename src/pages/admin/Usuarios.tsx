@@ -176,9 +176,14 @@ function ModalCrearUsuario({
           </select>
         </label>
         {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-        <Boton type="submit" disabled={enviando} className="w-full">
-          {enviando ? 'Creando…' : 'Crear usuario'}
-        </Boton>
+        <div className="flex gap-2">
+          <Boton type="button" variante="secundario" onClick={cerrar} className="flex-1">
+            Cancelar
+          </Boton>
+          <Boton type="submit" disabled={enviando} className="flex-1">
+            {enviando ? 'Creando…' : 'Crear usuario'}
+          </Boton>
+        </div>
       </form>
     </Modal>
   )
@@ -237,9 +242,14 @@ function ModalResetPassword({
             />
           </label>
           {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-          <Boton type="submit" disabled={enviando} className="w-full">
-            {enviando ? 'Guardando…' : 'Guardar'}
-          </Boton>
+          <div className="flex gap-2">
+            <Boton type="button" variante="secundario" onClick={cerrar} className="flex-1">
+              Cancelar
+            </Boton>
+            <Boton type="submit" disabled={enviando} className="flex-1">
+              {enviando ? 'Guardando…' : 'Guardar'}
+            </Boton>
+          </div>
         </form>
       )}
     </Modal>

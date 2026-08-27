@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -9,7 +9,6 @@ import {
   LogOut,
   ChevronDown,
 } from 'lucide-react'
-import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../lib/auth'
 import { ROLES_APP } from '../../domain/modulosApp'
@@ -20,16 +19,7 @@ const itemActivo = 'bg-white/15 text-white'
 const itemInactivo = 'text-white/75 hover:bg-white/10 hover:text-white'
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const { perfil } = useAuth()
-  const navigate = useNavigate()
   const [adminAbierto, setAdminAbierto] = useState(true)
-
-  async function salir() {
-    await supabase.auth.signOut()
-    navigate('/login', { replace: true })
-  }
-
-  const etiquetaRol = ROLES_APP.find((r) => r.valor === perfil?.role)?.etiqueta ?? perfil?.role
 
   return (
     <div className="flex min-h-full">
@@ -97,24 +87,40 @@ export default function Layout({ children }: { children: ReactNode }) {
             )}
           </div>
         </nav>
-
-        <div className="mt-4 border-t border-white/15 pt-3">
-          <div className="px-3 text-xs text-white/60">Sesión activa</div>
-          <div className="truncate px-3 text-sm font-medium text-white">
-            {perfil?.nombre ?? perfil?.email ?? '—'}
-          </div>
-          {perfil && <div className="px-3 text-xs text-white/60">{etiquetaRol}</div>}
-          <button
-            onClick={salir}
-            className={`${itemBase} ${itemInactivo} mt-2 w-full`}
-          >
-            <LogOut size={18} />
-            Cerrar sesión
-          </button>
-        </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto bg-slate-100 p-6">{children}</main>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <HeaderUsuario />
+        <main className="flex-1 overflow-y-auto bg-slate-100 p-6">{children}</main>
+      </div>
     </div>
+  )
+}
+
+function HeaderUsuario() {
+  const { perfil } = useAuth()
+  const navigate = useNavigate()
+
+  async function salir() {
+    await supabase.auth.signOut()
+    navigate('/login', { replace: true })
+  }
+
+  const etiquetaRol = ROLES_APP.find((r) => r.valor === perfil?.role)?.etiqueta ?? perfil?.role
+
+  return (
+    <header className="flex items-center justify-end gap-4 border-b border-slate-200 bg-white px-6 py-3">
+      <div className="text-right leading-tight">
+        <div className="text-sm font-medium text-slate-700">{perfil?.nombre ?? perfil?.email ?? '—'}</div>
+        {perfil && <div className="text-xs text-slate-400">{etiquetaRol}</div>}
+      </div>
+      <button
+        onClick={salir}
+        title="Cerrar sesión"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-azul"
+      >
+        <LogOut size={18} />
+      </button>
+    </header>
   )
 }

@@ -8,7 +8,7 @@ type Fila = {
   fecha: string
   estado: 'borrador' | 'finalizada'
   lugar: string | null
-  servicio_habilitado: { nombre: string } | null
+  servicio_res1732: { nombre: string } | null
   usuario: { nombre: string } | null
   sede: { nombre: string } | null
 }
@@ -29,7 +29,7 @@ export default function Historial() {
     const { data } = await supabase
       .from('autoevaluaciones')
       .select(
-        'id, fecha, estado, lugar, servicio_habilitado:servicios_habilitados(nombre), usuario:profiles(nombre), sede:sedes(nombre)',
+        'id, fecha, estado, lugar, servicio_res1732:servicios_res1732(nombre), usuario:profiles(nombre), sede:sedes(nombre)',
       )
       .order('creado_en', { ascending: false })
     setFilas((data as unknown as Fila[]) ?? [])
@@ -38,7 +38,7 @@ export default function Historial() {
 
   const filtradas = filas.filter((f) => {
     if (filtroEstado !== 'todos' && f.estado !== filtroEstado) return false
-    if (busqueda && !f.servicio_habilitado?.nombre?.toLowerCase().includes(busqueda.toLowerCase())) return false
+    if (busqueda && !f.servicio_res1732?.nombre?.toLowerCase().includes(busqueda.toLowerCase())) return false
     return true
   })
 
@@ -92,7 +92,7 @@ export default function Historial() {
                     className="cursor-pointer hover:bg-slate-50"
                   >
                     <td className="py-2 pr-4">{f.fecha}</td>
-                    <td className="py-2 pr-4 font-medium text-slate-700">{f.servicio_habilitado?.nombre ?? '—'}</td>
+                    <td className="py-2 pr-4 font-medium text-slate-700">{f.servicio_res1732?.nombre ?? '—'}</td>
                     <td className="py-2 pr-4">{f.sede?.nombre ?? '—'}</td>
                     <td className="py-2 pr-4">{f.usuario?.nombre ?? '—'}</td>
                     <td className="py-2 pr-4">
