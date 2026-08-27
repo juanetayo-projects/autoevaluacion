@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Check, X, MinusCircle, Loader2, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { calcularAvance, type Respuesta } from '../lib/calculos'
+import { calcularAvance, type Avance, type Respuesta } from '../lib/calculos'
 import { Boton, Card, Modal, PageHeader, Spinner } from '../components/ui/ui'
 
 type Empresa = { id: number; nombre: string }
@@ -19,10 +19,30 @@ type ServicioRes1732 = {
 type Criterio = {
   id: number
   numero: number
+  item: string | null
   criterio: string
   estandar: string
   complejidad: string
   modalidad: string | null
+}
+
+// La numeración de "Item" se reinicia dentro de cada Estándar (ej. hay un
+// "1." en Talento Humano y OTRO "1." distinto en Infraestructura) — agrupar
+// solo por el número de item colisiona entre estándares. Se agrupa por
+// Estándar (7 categorías reales, sin colisión); el número de item se sigue
+// mostrando por fila (FilaCriterio).
+const COLORES_ESTANDAR: Record<string, { borde: string; fondo: string; texto: string; badge: string }> = {
+  'Estándar de Talento Humano': { borde: 'border-blue-500', fondo: 'bg-blue-50', texto: 'text-blue-700', badge: 'bg-blue-600' },
+  'Estándar de Infraestructura': { borde: 'border-amber-500', fondo: 'bg-amber-50', texto: 'text-amber-700', badge: 'bg-amber-600' },
+  'Estándar de Dotación': { borde: 'border-emerald-500', fondo: 'bg-emerald-50', texto: 'text-emerald-700', badge: 'bg-emerald-600' },
+  'Estándar de Medicamentos, Dispositivos Médicos, Insumos y Otras Tecnologías en Salud': { borde: 'border-purple-500', fondo: 'bg-purple-50', texto: 'text-purple-700', badge: 'bg-purple-600' },
+  'Estándar de Procesos Prioritarios': { borde: 'border-rose-500', fondo: 'bg-rose-50', texto: 'text-rose-700', badge: 'bg-rose-600' },
+  'Estándar de Historia Clínica y Registros': { borde: 'border-cyan-500', fondo: 'bg-cyan-50', texto: 'text-cyan-700', badge: 'bg-cyan-600' },
+  'Estándar de Interdependencia': { borde: 'border-orange-500', fondo: 'bg-orange-50', texto: 'text-orange-700', badge: 'bg-orange-600' },
+}
+const COLOR_ESTANDAR_DEFECTO = { borde: 'border-slate-400', fondo: 'bg-slate-50', texto: 'text-slate-700', badge: 'bg-slate-600' }
+function colorDeEstandar(estandar: string) {
+  return COLORES_ESTANDAR[estandar] ?? COLOR_ESTANDAR_DEFECTO
 }
 type RespuestaLocal = { respuesta: Respuesta; observacion: string; respuestaId?: number }
 type Compromiso = {
@@ -164,7 +184,7 @@ export default function NuevaAutoevaluacion() {
   async function buscarCriterios(servicioId: number, modalidad: string, complejidad: string) {
     setCargandoCriterios(true)
     const universalId = await obtenerServicioUniversalId()
-    const columnas = 'id, numero, criterio, estandar, complejidad, modalidad'
+    const columnas = 'id, numero, item, criterio, estandar, complejidad, modalidad'
 
     // Propios del servicio: el filtro de Modalidad/Complejidad aplica, con
     // "Todas"/"No aplica"/vacío como comodín (confirmado con el cliente).
@@ -291,6 +311,40 @@ export default function NuevaAutoevaluacion() {
     for (const [k, v] of Object.entries(respuestas)) respMap[Number(k)] = v.respuesta
     return calcularAvance(criterios.length, respMap)
   }, [criterios, respuestas])
+
+  const grupos = useMemo(() => {
+    const mapa = new Map<string, Criterio[]>()
+    for (const c of criterios) {
+      if (!mapa.has(c.estandar)) mapa.set(c.estandar, [])
+      mapa.get(c.estandar)!.push(c)
+    }
+    return Array.from(mapa.entries()).map(([clave, items], i) => ({ clave, items, numero: i + 1 }))
+  }, [criterios])
+
+  const [gruposColapsados, setGruposColapsados] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    setGruposColapsados({})
+  }, [criterios])
+
+  function alternarGrupo(clave: string) {
+    setGruposColapsados((prev) => ({ ...prev, [clave]: !prev[clave] }))
+  }
+
+  function expandirTodo() {
+    setGruposColapsados({})
+  }
+
+  function contraerTodo() {
+    const todos: Record<string, boolean> = {}
+    for (const g of grupos) todos[g.clave] = true
+    setGruposColapsados(todos)
+  }
+
+  function irAGrupo(clave: string, numero: number) {
+    setGruposColapsados((prev) => ({ ...prev, [clave]: false }))
+    document.getElementById(`grupo-${numero}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const noCumpleSinCompromiso = useMemo(() => {
     return Object.entries(respuestas)
@@ -632,28 +686,66 @@ export default function NuevaAutoevaluacion() {
         </div>
       </Modal>
 
-      <Card className="mb-4">
-        <div className="text-lg font-bold text-azul">{servicioSeleccionado?.nombre}</div>
-        {servicioSeleccionado?.descripcion && (
-          <p className="mt-1 text-sm text-slate-600">{servicioSeleccionado.descripcion}</p>
+      <div className="sticky top-0 z-10 mb-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
+            <div className="truncate text-xs text-slate-500">
+              {empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} · {sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} ·{' '}
+              {lugar || 'Sin lugar'} · {fecha} · Modalidad: {modalidadFiltro} · Complejidad: {complejidadFiltro}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <AnilloAvance avance={avance} />
+            <div className="text-xs leading-tight">
+              <div className="font-medium text-slate-600">
+                {avance.diligenciados}/{avance.total}
+              </div>
+              <div className="text-emerald-600">✔ {avance.pctCumple}%</div>
+              <div className="text-red-600">✘ {avance.pctNoCumple}%</div>
+              <div className="text-slate-500">⊘ {avance.pctNoAplica}%</div>
+            </div>
+            {estado === 'finalizada' && (
+              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                Finalizada
+              </span>
+            )}
+          </div>
+        </div>
+        {(servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura) && (
+          <details className="mt-1">
+            <summary className="cursor-pointer text-xs font-medium text-azul2">Ver descripción del servicio</summary>
+            {servicioSeleccionado?.descripcion && (
+              <p className="mt-1 text-xs text-slate-600">{servicioSeleccionado.descripcion}</p>
+            )}
+            {servicioSeleccionado?.estructura && (
+              <p className="mt-1 text-xs text-slate-500">{servicioSeleccionado.estructura}</p>
+            )}
+          </details>
         )}
-        {servicioSeleccionado?.estructura && (
-          <p className="mt-2 text-xs text-slate-500">{servicioSeleccionado.estructura}</p>
-        )}
-      </Card>
+      </div>
 
-      <div className="sticky top-0 z-10 mb-4 flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <span className="text-sm font-medium text-slate-600">
-          Avance: {avance.diligenciados}/{avance.total}
-        </span>
-        <span className="text-sm text-emerald-600">✔ {avance.pctCumple}%</span>
-        <span className="text-sm text-red-600">✘ {avance.pctNoCumple}%</span>
-        <span className="text-sm text-slate-500">⊘ {avance.pctNoAplica}%</span>
-        {estado === 'finalizada' && (
-          <span className="ml-auto rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-            Finalizada
-          </span>
-        )}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+        <button onClick={expandirTodo} className="rounded-md px-2 py-1 text-xs font-medium text-azul2 hover:bg-slate-100">
+          Expandir todo
+        </button>
+        <button onClick={contraerTodo} className="rounded-md px-2 py-1 text-xs font-medium text-azul2 hover:bg-slate-100">
+          Contraer todo
+        </button>
+        <span className="mx-1 h-4 w-px bg-slate-200" />
+        {grupos.map((g) => {
+          const color = colorDeEstandar(g.clave)
+          return (
+            <button
+              key={g.clave}
+              onClick={() => irAGrupo(g.clave, g.numero)}
+              className={`rounded-md px-2 py-1 text-xs font-medium ${color.fondo} ${color.texto} hover:opacity-75`}
+              title={g.clave}
+            >
+              {g.numero}. {g.clave.replace('Estándar de ', '')}
+            </button>
+          )
+        })}
       </div>
 
       {cargandoCriterios ? (
@@ -661,18 +753,42 @@ export default function NuevaAutoevaluacion() {
           <Spinner />
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {criterios.map((c) => (
-            <FilaCriterio
-              key={c.id}
-              criterio={c}
-              respuesta={respuestas[c.id]}
-              soloLectura={estado === 'finalizada'}
-              guardando={guardando === c.id}
-              onResponder={(r) => responder(c.id, r)}
-              onObservacion={(obs) => guardarObservacion(c.id, obs)}
-            />
-          ))}
+        <div className="flex flex-col gap-3">
+          {grupos.map((g) => {
+            const colapsado = !!gruposColapsados[g.clave]
+            const color = colorDeEstandar(g.clave)
+            return (
+              <div key={g.clave} id={`grupo-${g.numero}`} className="scroll-mt-24">
+                <button
+                  onClick={() => alternarGrupo(g.clave)}
+                  className={`flex w-full items-center gap-2 rounded-lg border-l-4 ${color.borde} ${color.fondo} px-3 py-2 text-left`}
+                >
+                  <span className={`rounded ${color.badge} px-2 py-0.5 text-xs font-bold text-white`}>
+                    {g.numero}
+                  </span>
+                  <span className={`flex-1 truncate text-sm font-medium ${color.texto}`}>{g.clave}</span>
+                  <span className="text-xs text-slate-400">
+                    {colapsado ? 'Expandir' : 'Contraer'} ({g.items.length})
+                  </span>
+                </button>
+                {!colapsado && (
+                  <div className="mt-2 flex flex-col gap-2 pl-2">
+                    {g.items.map((c) => (
+                      <FilaCriterio
+                        key={c.id}
+                        criterio={c}
+                        respuesta={respuestas[c.id]}
+                        soloLectura={estado === 'finalizada'}
+                        guardando={guardando === c.id}
+                        onResponder={(r) => responder(c.id, r)}
+                        onObservacion={(obs) => guardarObservacion(c.id, obs)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -709,7 +825,7 @@ function FilaCriterio({
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 text-sm text-slate-700">
-          <span className="font-medium">{criterio.numero}.</span> {criterio.criterio}
+          <span className="font-medium">{criterio.item ?? criterio.numero}.</span> {criterio.criterio}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {guardando && <Loader2 size={16} className="animate-spin text-slate-400" />}
@@ -737,6 +853,51 @@ function FilaCriterio({
         onBlur={(e) => onObservacion(e.target.value)}
         className="campo mt-2 text-xs"
       />
+    </div>
+  )
+}
+
+// Anillo de progreso: un segmento por cada tipo de respuesta, proporcional
+// al % sobre el total de criterios (el resto del aro queda gris = pendiente).
+function AnilloAvance({ avance }: { avance: Avance }) {
+  const size = 56
+  const grosor = 7
+  const radio = (size - grosor) / 2
+  const circunferencia = 2 * Math.PI * radio
+  const segmentos = [
+    { pct: avance.pctCumple, color: '#059669' },
+    { pct: avance.pctNoCumple, color: '#dc2626' },
+    { pct: avance.pctNoAplica, color: '#64748b' },
+  ]
+  let acumulado = 0
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radio} stroke="#e2e8f0" strokeWidth={grosor} fill="none" />
+        {segmentos.map((s, i) => {
+          if (s.pct <= 0) return null
+          const largo = (s.pct / 100) * circunferencia
+          const el = (
+            <circle
+              key={i}
+              cx={size / 2}
+              cy={size / 2}
+              r={radio}
+              stroke={s.color}
+              strokeWidth={grosor}
+              fill="none"
+              strokeDasharray={`${largo} ${circunferencia - largo}`}
+              strokeDashoffset={-acumulado}
+            />
+          )
+          acumulado += largo
+          return el
+        })}
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-azul">
+        {avance.pctCumple}%
+      </div>
     </div>
   )
 }
