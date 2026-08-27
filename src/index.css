@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --color-azul: #0d2d6b;
+  --color-azul2: #16468e;
+}
+
+:root {
+  --azul: #0d2d6b;
+  --azul-2: #16468e;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer components {
+  .campo {
+    @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-azul focus:outline-none focus:ring-1 focus:ring-azul;
+  }
+}
