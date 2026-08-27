@@ -4,7 +4,7 @@ import { Check, X, MinusCircle, Loader2, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { calcularAvance, type Respuesta } from '../lib/calculos'
-import { Boton, Card, PageHeader, Spinner } from '../components/ui/ui'
+import { Boton, Card, Modal, PageHeader, Spinner } from '../components/ui/ui'
 
 type Empresa = { id: number; nombre: string }
 type Sede = { id: number; nombre: string; empresa_id: number }
@@ -77,6 +77,11 @@ export default function NuevaAutoevaluacion() {
 
   const [compromisos, setCompromisos] = useState<Record<number, Compromiso>>({})
   const [enviandoCierre, setEnviandoCierre] = useState(false)
+  const [confirmarSalir, setConfirmarSalir] = useState(false)
+  const [duplicado, setDuplicado] = useState<{ id: string; estado: 'borrador' | 'finalizada'; fecha: string } | null>(
+    null,
+  )
+  const [verificandoDuplicado, setVerificandoDuplicado] = useState(false)
 
   const servicioSeleccionado = serviciosRes.find((s) => s.id === servicioResId)
 
@@ -159,23 +164,32 @@ export default function NuevaAutoevaluacion() {
   async function buscarCriterios(servicioId: number, modalidad: string, complejidad: string) {
     setCargandoCriterios(true)
     const universalId = await obtenerServicioUniversalId()
-    const idsServicio = [servicioId, universalId].filter(Boolean) as number[]
+    const columnas = 'id, numero, criterio, estandar, complejidad, modalidad'
 
-    let query = supabase
-      .from('criterios_res1732')
-      .select('id, numero, criterio, estandar, complejidad, modalidad')
-      .in('servicio_res1732_id', idsServicio)
-      .order('numero')
-
+    // Propios del servicio: el filtro de Modalidad/Complejidad aplica, con
+    // "Todas"/"No aplica"/vacío como comodín (confirmado con el cliente).
+    let propios = supabase.from('criterios_res1732').select(columnas).eq('servicio_res1732_id', servicioId)
     if (modalidad !== TODAS) {
-      query = query.or(`modalidad.eq.${modalidad},modalidad.is.null`)
+      propios = propios.or(`modalidad.eq.${modalidad},modalidad.is.null`)
     }
     if (complejidad !== TODAS) {
-      query = query.or(`complejidad.eq.${complejidad},complejidad.eq.Todas,complejidad.eq.No aplica`)
+      propios = propios.or(`complejidad.eq.${complejidad},complejidad.eq.Todas,complejidad.eq.No aplica`)
     }
 
-    const { data } = await query
-    setCriterios((data as Criterio[]) ?? [])
+    // Universales ("Todo los servicios"): se incluyen SIEMPRE completos,
+    // sin filtrar por Modalidad/Complejidad (confirmado con el cliente).
+    const universales = universalId
+      ? supabase.from('criterios_res1732').select(columnas).eq('servicio_res1732_id', universalId)
+      : null
+
+    const [{ data: dataPropios }, universalesResp] = await Promise.all([
+      propios,
+      universales ?? Promise.resolve({ data: [] as Criterio[] }),
+    ])
+    const dataUniversales = (universalesResp as { data: Criterio[] | null }).data ?? []
+
+    const todos = [...(dataPropios ?? []), ...dataUniversales].sort((a, b) => a.numero - b.numero)
+    setCriterios(todos)
     setCargandoCriterios(false)
   }
 
@@ -186,6 +200,31 @@ export default function NuevaAutoevaluacion() {
       setPaso('responder')
       return
     }
+
+    // Antes de crear una nueva, verificar si ya existe una auto-evaluación
+    // con la misma Empresa+Sede+Servicio (borrador o finalizada).
+    setVerificandoDuplicado(true)
+    const { data: existente } = await supabase
+      .from('autoevaluaciones')
+      .select('id, estado, fecha')
+      .eq('empresa_id', empresaId)
+      .eq('sede_id', sedeId)
+      .eq('servicio_res1732_id', servicioResId)
+      .order('creado_en', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    setVerificandoDuplicado(false)
+
+    if (existente) {
+      setDuplicado(existente as { id: string; estado: 'borrador' | 'finalizada'; fecha: string })
+      return
+    }
+
+    await crearAutoevaluacion()
+  }
+
+  async function crearAutoevaluacion() {
+    if (!empresaId || !sedeId || !servicioResId || !perfil) return
     const { data, error } = await supabase
       .from('autoevaluaciones')
       .insert({
@@ -205,6 +244,13 @@ export default function NuevaAutoevaluacion() {
     setAutoevaluacionId(data.id)
     await buscarCriterios(servicioResId, modalidadFiltro, complejidadFiltro)
     setPaso('responder')
+  }
+
+  async function eliminarDuplicadoYCrearNueva() {
+    if (!duplicado) return
+    await supabase.from('autoevaluaciones').delete().eq('id', duplicado.id)
+    setDuplicado(null)
+    await crearAutoevaluacion()
   }
 
   async function responder(criterioId: number, respuesta: Respuesta) {
@@ -407,10 +453,70 @@ export default function NuevaAutoevaluacion() {
               </select>
             </Campo>
           </div>
-          <Boton onClick={iniciar} disabled={!empresaId || !sedeId || !servicioResId} className="mt-6 w-full">
-            Continuar
-          </Boton>
+          <div className="mt-6 flex gap-2">
+            <Boton variante="secundario" onClick={() => navigate('/')} className="flex-1">
+              Cancelar
+            </Boton>
+            <Boton
+              onClick={iniciar}
+              disabled={!empresaId || !sedeId || !servicioResId || verificandoDuplicado}
+              className="flex-1"
+            >
+              {verificandoDuplicado ? 'Verificando…' : 'Continuar'}
+            </Boton>
+          </div>
         </Card>
+
+        <Modal
+          open={!!duplicado}
+          onClose={() => setDuplicado(null)}
+          titulo={duplicado?.estado === 'borrador' ? 'Ya existe un borrador' : 'Ya existe una auto-evaluación finalizada'}
+        >
+          {duplicado?.estado === 'borrador' ? (
+            <>
+              <p className="mb-4 text-sm text-slate-600">
+                Ya hay un borrador (del {duplicado.fecha}) para este mismo Servicio, Sede y Empresa. ¿Deseas
+                continuarlo, o eliminarlo y empezar uno nuevo?
+              </p>
+              <div className="flex flex-col gap-2">
+                <Boton onClick={() => navigate(`/nueva/${duplicado.id}`)} className="w-full">
+                  Continuar el borrador existente
+                </Boton>
+                <Boton variante="peligro" onClick={eliminarDuplicadoYCrearNueva} className="w-full">
+                  Eliminarlo y crear una nueva
+                </Boton>
+                <Boton variante="secundario" onClick={() => setDuplicado(null)} className="w-full">
+                  Cancelar
+                </Boton>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-4 text-sm text-slate-600">
+                Ya existe una auto-evaluación finalizada (del {duplicado?.fecha}) para este mismo Servicio, Sede y
+                Empresa.
+              </p>
+              <div className="flex flex-col gap-2">
+                <Boton onClick={() => navigate(`/nueva/${duplicado?.id}`)} className="w-full">
+                  Ver la existente
+                </Boton>
+                <Boton onClick={crearAutoevaluacion} className="w-full">
+                  Crear una nueva de todas formas
+                </Boton>
+                <Boton
+                  variante="peligro"
+                  onClick={() => duplicado && eliminarDuplicadoYCrearNueva()}
+                  className="w-full"
+                >
+                  Eliminarla y crear una nueva
+                </Boton>
+                <Boton variante="secundario" onClick={() => setDuplicado(null)} className="w-full">
+                  Cancelar
+                </Boton>
+              </div>
+            </>
+          )}
+        </Modal>
       </div>
     )
   }
@@ -505,11 +611,26 @@ export default function NuevaAutoevaluacion() {
   return (
     <div>
       <button
-        onClick={() => navigate('/')}
+        onClick={() => (estado === 'borrador' ? setConfirmarSalir(true) : navigate('/'))}
         className="mb-3 flex items-center gap-1 text-sm text-slate-500 hover:text-azul"
       >
-        <ArrowLeft size={16} /> Volver al dashboard
+        <ArrowLeft size={16} /> {estado === 'borrador' ? 'Salir' : 'Volver al dashboard'}
       </button>
+
+      <Modal open={confirmarSalir} onClose={() => setConfirmarSalir(false)} titulo="Salir de la auto-evaluación">
+        <p className="mb-4 text-sm text-slate-600">
+          Tu progreso ({avance.diligenciados}/{avance.total} criterios) ya está guardado como{' '}
+          <strong>borrador</strong>. Puedes continuarlo más tarde desde el Dashboard o el Historial.
+        </p>
+        <div className="flex gap-2">
+          <Boton variante="secundario" onClick={() => setConfirmarSalir(false)} className="flex-1">
+            Seguir diligenciando
+          </Boton>
+          <Boton onClick={() => navigate('/')} className="flex-1">
+            Salir y guardar borrador
+          </Boton>
+        </div>
+      </Modal>
 
       <Card className="mb-4">
         <div className="text-lg font-bold text-azul">{servicioSeleccionado?.nombre}</div>
