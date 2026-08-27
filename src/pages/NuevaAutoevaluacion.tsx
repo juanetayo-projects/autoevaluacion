@@ -142,11 +142,14 @@ export default function NuevaAutoevaluacion() {
     setModalidadFiltro(TODAS)
     setComplejidadFiltro(TODAS)
 
-    const universalId = await obtenerServicioUniversalId()
+    // Las opciones del filtro salen SOLO de los criterios propios del
+    // servicio elegido (no de los universales "Todo los servicios") — los
+    // universales igual se incluyen siempre al listar criterios (ver
+    // buscarCriterios), pero no deben inflar las opciones del desplegable.
     const { data } = await supabase
       .from('criterios_res1732')
       .select('modalidad, complejidad')
-      .in('servicio_res1732_id', [servicioId, universalId].filter(Boolean) as number[])
+      .eq('servicio_res1732_id', servicioId)
     const mods = Array.from(new Set((data ?? []).map((r) => r.modalidad).filter(Boolean))) as string[]
     const comps = Array.from(new Set((data ?? []).map((r) => r.complejidad).filter(Boolean))) as string[]
     setModalidades(mods.sort())
