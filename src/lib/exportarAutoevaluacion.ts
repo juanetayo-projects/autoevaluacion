@@ -41,6 +41,7 @@ export type GrupoExport = { estandar: string; items: CriterioExport[] }
 export async function exportarAutoevaluacionExcel(params: {
   empresa: string
   sede: string
+  ubicacion: string
   lugar: string
   fecha: string
   servicio: string
@@ -101,6 +102,7 @@ export async function exportarAutoevaluacionExcel(params: {
   const infoFilas: [string, string][] = [
     ['Empresa', params.empresa],
     ['Sede', params.sede],
+    ['Ubicación', params.ubicacion],
     ['Lugar', params.lugar || '—'],
     ['Fecha', params.fecha],
     ['Modalidad (filtro)', params.modalidad],

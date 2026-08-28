@@ -8,6 +8,7 @@ import { Boton, Card, Modal, PageHeader, Spinner } from '../components/ui/ui'
 
 type Empresa = { id: number; nombre: string }
 type Sede = { id: number; nombre: string; empresa_id: number }
+type Ubicacion = { id: number; nombre: string }
 type ServicioRes1732 = {
   id: number
   nombre: string
@@ -91,11 +92,13 @@ export default function NuevaAutoevaluacion() {
 
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [sedes, setSedes] = useState<Sede[]>([])
+  const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([])
   // Servicio = columna G del Excel (39 valores reales, tabla servicios_res1732).
   const [serviciosRes, setServiciosRes] = useState<ServicioRes1732[]>([])
 
   const [empresaId, setEmpresaId] = useState<number | null>(null)
   const [sedeId, setSedeId] = useState<number | null>(null)
+  const [ubicacionId, setUbicacionId] = useState<number | null>(null)
   const [lugar, setLugar] = useState('')
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
   const [servicioResId, setServicioResId] = useState<number | null>(null)
@@ -134,9 +137,10 @@ export default function NuevaAutoevaluacion() {
   }, [id])
 
   async function cargarCatalogos() {
-    const [{ data: emp }, { data: sed }, { data: sr }] = await Promise.all([
+    const [{ data: emp }, { data: sed }, { data: ubi }, { data: sr }] = await Promise.all([
       supabase.from('empresas').select('*').order('nombre'),
       supabase.from('sedes').select('*').order('nombre'),
+      supabase.from('ubicaciones').select('id, nombre').order('nombre'),
       supabase
         .from('servicios_res1732')
         .select('id, nombre, descripcion, estructura, grupo_res1732_id, grupo_res1732:grupos_res1732(nombre)')
@@ -145,6 +149,7 @@ export default function NuevaAutoevaluacion() {
     ])
     setEmpresas((emp as Empresa[]) ?? [])
     setSedes((sed as Sede[]) ?? [])
+    setUbicaciones((ubi as Ubicacion[]) ?? [])
     setServiciosRes((sr as unknown as ServicioRes1732[]) ?? [])
     if (emp && emp.length > 0) setEmpresaId(emp[0].id)
   }
@@ -158,6 +163,7 @@ export default function NuevaAutoevaluacion() {
     setAutoevaluacionId(cab.id)
     setEmpresaId(cab.empresa_id)
     setSedeId(cab.sede_id)
+    setUbicacionId(cab.ubicacion_id)
     setLugar(cab.lugar ?? '')
     setFecha(cab.fecha)
     setServicioResId(cab.servicio_res1732_id)
@@ -235,7 +241,7 @@ export default function NuevaAutoevaluacion() {
   }
 
   async function iniciar() {
-    if (!empresaId || !sedeId || !servicioResId || !perfil) return
+    if (!empresaId || !sedeId || !ubicacionId || !servicioResId || !perfil) return
     if (autoevaluacionId) {
       await buscarCriterios(servicioResId, modalidadFiltro, complejidadFiltro)
       setPaso('responder')
@@ -243,13 +249,14 @@ export default function NuevaAutoevaluacion() {
     }
 
     // Antes de crear una nueva, verificar si ya existe una auto-evaluación
-    // con la misma Empresa+Sede+Servicio (borrador o finalizada).
+    // con la misma Empresa+Sede+Ubicación+Servicio (borrador o finalizada).
     setVerificandoDuplicado(true)
     const { data: existente } = await supabase
       .from('autoevaluaciones')
       .select('id, estado, fecha')
       .eq('empresa_id', empresaId)
       .eq('sede_id', sedeId)
+      .eq('ubicacion_id', ubicacionId)
       .eq('servicio_res1732_id', servicioResId)
       .order('creado_en', { ascending: false })
       .limit(1)
@@ -265,12 +272,13 @@ export default function NuevaAutoevaluacion() {
   }
 
   async function crearAutoevaluacion() {
-    if (!empresaId || !sedeId || !servicioResId || !perfil) return
+    if (!empresaId || !sedeId || !ubicacionId || !servicioResId || !perfil) return
     const { data, error } = await supabase
       .from('autoevaluaciones')
       .insert({
         empresa_id: empresaId,
         sede_id: sedeId,
+        ubicacion_id: ubicacionId,
         lugar,
         fecha,
         usuario_id: perfil.id,
@@ -475,6 +483,7 @@ export default function NuevaAutoevaluacion() {
       await exportarAutoevaluacionExcel({
         empresa: empresas.find((e) => e.id === empresaId)?.nombre ?? '—',
         sede: sedes.find((s) => s.id === sedeId)?.nombre ?? '—',
+        ubicacion: ubicaciones.find((u) => u.id === ubicacionId)?.nombre ?? '—',
         lugar,
         fecha,
         servicio: servicioSeleccionado?.nombre ?? '—',
@@ -546,6 +555,20 @@ export default function NuevaAutoevaluacion() {
                 ))}
               </select>
             </Campo>
+            <Campo label="Ubicación">
+              <select
+                value={ubicacionId ?? ''}
+                onChange={(e) => setUbicacionId(Number(e.target.value))}
+                className="campo py-1.5"
+              >
+                <option value="">Selecciona…</option>
+                {ubicaciones.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.nombre}
+                  </option>
+                ))}
+              </select>
+            </Campo>
             <Campo label="Lugar">
               <input value={lugar} onChange={(e) => setLugar(e.target.value)} className="campo py-1.5" />
             </Campo>
@@ -604,7 +627,7 @@ export default function NuevaAutoevaluacion() {
             </Boton>
             <Boton
               onClick={iniciar}
-              disabled={!empresaId || !sedeId || !servicioResId || verificandoDuplicado}
+              disabled={!empresaId || !sedeId || !ubicacionId || !servicioResId || verificandoDuplicado}
               className="flex-1"
             >
               {verificandoDuplicado ? 'Verificando…' : 'Continuar'}
@@ -620,7 +643,7 @@ export default function NuevaAutoevaluacion() {
           {duplicado?.estado === 'borrador' ? (
             <>
               <p className="mb-4 text-sm text-slate-600">
-                Ya hay un borrador (del {duplicado.fecha}) para este mismo Servicio, Sede y Empresa. ¿Deseas
+                Ya hay un borrador (del {duplicado.fecha}) para este mismo Servicio, Sede, Ubicación y Empresa. ¿Deseas
                 continuarlo, o eliminarlo y empezar uno nuevo?
               </p>
               <div className="flex flex-col gap-2">
@@ -638,7 +661,7 @@ export default function NuevaAutoevaluacion() {
           ) : (
             <>
               <p className="mb-4 text-sm text-slate-600">
-                Ya existe una auto-evaluación finalizada (del {duplicado?.fecha}) para este mismo Servicio, Sede y
+                Ya existe una auto-evaluación finalizada (del {duplicado?.fecha}) para este mismo Servicio, Sede, Ubicación y
                 Empresa.
               </p>
               <div className="flex flex-col gap-2">
@@ -804,13 +827,15 @@ export default function NuevaAutoevaluacion() {
             </span>
           )}
           {/* Filtros seleccionados en líneas independientes, agrupados por color:
-              Ubicación (Empresa/Sede/Lugar) y Cuándo/criterios (Fecha/Modalidad/Complejidad).
-              Sin max-h/scroll: son siempre las mismas 6 filas cortas, nunca deberían necesitar
-              recortarse (a diferencia de la Descripción, de longitud variable). */}
+              dónde se hizo (Empresa/Sede/Ubicación/Lugar) y cuándo/criterios
+              (Fecha/Modalidad/Complejidad). Sin max-h/scroll: son siempre las
+              mismas 7 filas cortas, nunca deberían necesitar recortarse (a
+              diferencia de la Descripción, de longitud variable). */}
           <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 text-[11px]">
             <FilaEtiqueta etiqueta="Empresa" valor={empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} tono="bg-sky-50" />
             <FilaEtiqueta etiqueta="Sede" valor={sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} tono="bg-sky-50/60" />
-            <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50" />
+            <FilaEtiqueta etiqueta="Ubicación" valor={ubicaciones.find((u) => u.id === ubicacionId)?.nombre ?? '—'} tono="bg-sky-50" />
+            <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50/60" />
             <FilaEtiqueta etiqueta="Fecha" valor={fecha} tono="bg-amber-50" />
             <FilaEtiqueta etiqueta="Modalidad" valor={modalidadFiltro} tono="bg-amber-50/60" />
             <FilaEtiqueta etiqueta="Complejidad" valor={complejidadFiltro} tono="bg-amber-50" />
