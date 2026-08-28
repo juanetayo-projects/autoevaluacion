@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { Badge, Card, FilterBar, PageHeader, Spinner } from '../components/ui/ui'
+import { useAuth } from '../lib/auth'
+import { Badge, Boton, Card, FilterBar, Modal, PageHeader, Spinner } from '../components/ui/ui'
 
 type Fila = {
   id: string
@@ -15,10 +17,15 @@ type Fila = {
 
 export default function Historial() {
   const navigate = useNavigate()
+  const { perfil } = useAuth()
   const [filas, setFilas] = useState<Fila[]>([])
   const [cargando, setCargando] = useState(true)
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'borrador' | 'finalizada'>('todos')
   const [busqueda, setBusqueda] = useState('')
+  const [eliminando, setEliminando] = useState<Fila | null>(null)
+  const [borrando, setBorrando] = useState(false)
+
+  const esAdmin = perfil?.role === 'admin'
 
   useEffect(() => {
     cargar()
@@ -34,6 +41,15 @@ export default function Historial() {
       .order('creado_en', { ascending: false })
     setFilas((data as unknown as Fila[]) ?? [])
     setCargando(false)
+  }
+
+  async function eliminar() {
+    if (!eliminando) return
+    setBorrando(true)
+    await supabase.from('autoevaluaciones').delete().eq('id', eliminando.id)
+    setBorrando(false)
+    setEliminando(null)
+    cargar()
   }
 
   const filtradas = filas.filter((f) => {
@@ -82,23 +98,50 @@ export default function Historial() {
                   <th className="py-2 pr-4">Sede</th>
                   <th className="py-2 pr-4">Usuario</th>
                   <th className="py-2 pr-4">Estado</th>
+                  <th className="py-2 pr-4" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtradas.map((f) => (
-                  <tr
-                    key={f.id}
-                    onClick={() => navigate(`/nueva/${f.id}`)}
-                    className="cursor-pointer hover:bg-slate-50"
-                  >
-                    <td className="py-2 pr-4">{f.fecha}</td>
-                    <td className="py-2 pr-4 font-medium text-slate-700">{f.servicio_res1732?.nombre ?? '—'}</td>
-                    <td className="py-2 pr-4">{f.sede?.nombre ?? '—'}</td>
-                    <td className="py-2 pr-4">{f.usuario?.nombre ?? '—'}</td>
-                    <td className="py-2 pr-4">
+                  <tr key={f.id} className="hover:bg-slate-50">
+                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
+                      {f.fecha}
+                    </td>
+                    <td
+                      className="cursor-pointer py-2 pr-4 font-medium text-slate-700"
+                      onClick={() => navigate(`/nueva/${f.id}`)}
+                    >
+                      {f.servicio_res1732?.nombre ?? '—'}
+                    </td>
+                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
+                      {f.sede?.nombre ?? '—'}
+                    </td>
+                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
+                      {f.usuario?.nombre ?? '—'}
+                    </td>
+                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
                       <Badge tono={f.estado === 'finalizada' ? 'exito' : 'advertencia'}>
                         {f.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
                       </Badge>
+                    </td>
+                    <td className="py-2 pr-4 text-right">
+                      <div className="flex justify-end gap-3">
+                        <button
+                          onClick={() => navigate(`/nueva/${f.id}`)}
+                          className="text-xs font-medium text-azul2 hover:underline"
+                        >
+                          {f.estado === 'finalizada' ? 'Ver' : 'Continuar'}
+                        </button>
+                        {esAdmin && (
+                          <button
+                            onClick={() => setEliminando(f)}
+                            title="Eliminar"
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -107,6 +150,22 @@ export default function Historial() {
           </div>
         )}
       </Card>
+
+      <Modal open={!!eliminando} onClose={() => setEliminando(null)} titulo="Eliminar auto-evaluación">
+        <p className="mb-4 text-sm text-slate-600">
+          ¿Eliminar la auto-evaluación de <strong>{eliminando?.servicio_res1732?.nombre}</strong> del{' '}
+          {eliminando?.fecha}? Se borrarán también sus respuestas y compromisos de plan de acción. Esta acción no se
+          puede deshacer.
+        </p>
+        <div className="flex gap-2">
+          <Boton variante="secundario" onClick={() => setEliminando(null)} className="flex-1">
+            Cancelar
+          </Boton>
+          <Boton variante="peligro" onClick={eliminar} disabled={borrando} className="flex-1">
+            {borrando ? 'Eliminando…' : 'Eliminar'}
+          </Boton>
+        </div>
+      </Modal>
     </div>
   )
 }

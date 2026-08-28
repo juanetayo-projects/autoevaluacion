@@ -107,17 +107,26 @@ function HeaderUsuario() {
   }
 
   const etiquetaRol = ROLES_APP.find((r) => r.valor === perfil?.role)?.etiqueta ?? perfil?.role
+  const iniciales = (perfil?.nombre || perfil?.email || '?')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join('')
 
   return (
-    <header className="flex items-center justify-end gap-4 border-b border-slate-200 bg-white px-6 py-3">
+    <header className="sticky top-0 z-20 flex items-center justify-end gap-3 bg-gradient-to-r from-azul to-azul2 px-6 py-2.5 shadow-sm">
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15 text-sm font-semibold text-white ring-1 ring-white/30">
+        {iniciales}
+      </div>
       <div className="text-right leading-tight">
-        <div className="text-sm font-medium text-slate-700">{perfil?.nombre ?? perfil?.email ?? '—'}</div>
-        {perfil && <div className="text-xs text-slate-400">{etiquetaRol}</div>}
+        <div className="text-sm font-medium text-white">{perfil?.nombre ?? perfil?.email ?? '—'}</div>
+        {perfil && <div className="text-xs text-white/70">{etiquetaRol}</div>}
       </div>
       <button
         onClick={salir}
         title="Cerrar sesión"
-        className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-azul"
+        className="ml-1 flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/15 hover:text-white"
       >
         <LogOut size={18} />
       </button>

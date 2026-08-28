@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Boton, Card, FilterBar, Modal, PageHeader, Spinner } from '../../components/ui/ui'
+import { Boton, Card, FilterBar, Modal, Spinner } from '../../components/ui/ui'
 
 type Tab = 'servicios' | 'criterios'
 
@@ -9,15 +9,16 @@ export default function Catalogos() {
 
   return (
     <div>
-      <PageHeader titulo="Catálogos" />
-
-      <div className="mb-4 flex gap-1 border-b border-slate-200">
-        <BotonTab activo={tab === 'servicios'} onClick={() => setTab('servicios')}>
-          Servicios (columna G)
-        </BotonTab>
-        <BotonTab activo={tab === 'criterios'} onClick={() => setTab('criterios')}>
-          Criterios Res.1732
-        </BotonTab>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
+        <h1 className="text-lg font-semibold text-azul">Catálogos</h1>
+        <div className="flex gap-1">
+          <BotonTab activo={tab === 'servicios'} onClick={() => setTab('servicios')}>
+            Servicios (columna G)
+          </BotonTab>
+          <BotonTab activo={tab === 'criterios'} onClick={() => setTab('criterios')}>
+            Criterios Res.1732
+          </BotonTab>
+        </div>
       </div>
 
       {tab === 'servicios' ? <ServiciosRes1732Tab /> : <CriteriosTab />}
@@ -37,8 +38,8 @@ function BotonTab({
   return (
     <button
       onClick={onClick}
-      className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-        activo ? 'border-azul text-azul' : 'border-transparent text-slate-500 hover:text-slate-700'
+      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+        activo ? 'bg-azul text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
       }`}
     >
       {children}
@@ -244,6 +245,9 @@ function CriteriosTab() {
   const [servicioFiltro, setServicioFiltro] = useState<number | ''>('')
   const [servicios, setServicios] = useState<{ id: number; nombre: string }[]>([])
   const [grupos, setGrupos] = useState<Grupo[]>([])
+  const [opcionesEstandar, setOpcionesEstandar] = useState<string[]>([])
+  const [opcionesComplejidad, setOpcionesComplejidad] = useState<string[]>([])
+  const [opcionesModalidad, setOpcionesModalidad] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [editando, setEditando] = useState<Criterio | 'nuevo' | null>(null)
   const [eliminando, setEliminando] = useState<Criterio | null>(null)
@@ -259,6 +263,17 @@ function CriteriosTab() {
       .select('id, nombre')
       .order('nombre')
       .then(({ data }) => setGrupos((data as Grupo[]) ?? []))
+    // Opciones de los desplegables Estándar/Complejidad/Modalidad: valores
+    // reales ya existentes en la tabla, para no permitir texto libre suelto.
+    supabase
+      .from('criterios_res1732')
+      .select('estandar, complejidad, modalidad')
+      .then(({ data }) => {
+        const filas = data ?? []
+        setOpcionesEstandar(Array.from(new Set(filas.map((f) => f.estandar).filter(Boolean))).sort())
+        setOpcionesComplejidad(Array.from(new Set(filas.map((f) => f.complejidad).filter(Boolean))).sort())
+        setOpcionesModalidad(Array.from(new Set(filas.map((f) => f.modalidad).filter(Boolean))).sort() as string[])
+      })
   }, [])
 
   useEffect(() => {
@@ -418,6 +433,9 @@ function CriteriosTab() {
         registro={editando}
         grupos={grupos}
         servicios={servicios}
+        opcionesEstandar={opcionesEstandar}
+        opcionesComplejidad={opcionesComplejidad}
+        opcionesModalidad={opcionesModalidad}
         onClose={() => setEditando(null)}
         onGuardado={cargar}
       />
@@ -443,12 +461,18 @@ function ModalEditarCriterio({
   registro,
   grupos,
   servicios,
+  opcionesEstandar,
+  opcionesComplejidad,
+  opcionesModalidad,
   onClose,
   onGuardado,
 }: {
   registro: Criterio | 'nuevo' | null
   grupos: Grupo[]
   servicios: { id: number; nombre: string }[]
+  opcionesEstandar: string[]
+  opcionesComplejidad: string[]
+  opcionesModalidad: string[]
   onClose: () => void
   onGuardado: () => void
 }) {
@@ -526,9 +550,14 @@ function ModalEditarCriterio({
   }
 
   return (
-    <Modal open={!!registro} onClose={onClose} titulo={esNuevo ? 'Nuevo criterio' : `Editar criterio ${numero}`}>
-      <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-4">
+    <Modal
+      open={!!registro}
+      onClose={onClose}
+      titulo={esNuevo ? 'Nuevo criterio' : `Editar criterio ${numero}`}
+      ancho="max-w-2xl"
+    >
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <label className="text-sm">
             <span className="mb-1 block font-medium text-slate-600">No. (numero)</span>
             <input value={numero} onChange={(e) => setNumero(e.target.value)} className="campo" />
@@ -537,16 +566,16 @@ function ModalEditarCriterio({
             <span className="mb-1 block font-medium text-slate-600">Página</span>
             <input value={pagina} onChange={(e) => setPagina(e.target.value)} className="campo" />
           </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-slate-600">Item</span>
+            <input value={item} onChange={(e) => setItem(e.target.value)} className="campo" />
+          </label>
         </div>
         <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Item</span>
-          <input value={item} onChange={(e) => setItem(e.target.value)} className="campo" />
-        </label>
-        <label className="text-sm">
           <span className="mb-1 block font-medium text-slate-600">Criterio</span>
-          <textarea value={criterio} onChange={(e) => setCriterio(e.target.value)} className="campo" rows={5} />
+          <textarea value={criterio} onChange={(e) => setCriterio(e.target.value)} className="campo" rows={3} />
         </label>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <label className="text-sm">
             <span className="mb-1 block font-medium text-slate-600">Grupo</span>
             <select value={grupoId ?? ''} onChange={(e) => setGrupoId(Number(e.target.value))} className="campo">
@@ -569,26 +598,47 @@ function ModalEditarCriterio({
           </label>
         </div>
         {registro && registro !== 'nuevo' && (
-          <div className="grid grid-cols-2 gap-4 text-xs text-slate-400">
-            <div>Numeral Grupo: {registro.numeral_grupo} (se recalcula al guardar según el Grupo elegido)</div>
-            <div>Numeral Servicio: {registro.numeral_servicio} (se recalcula al guardar según el Servicio elegido)</div>
+          <div className="grid grid-cols-2 gap-3 text-xs text-slate-400">
+            <div>Numeral Grupo: {registro.numeral_grupo} (se recalcula al guardar)</div>
+            <div>Numeral Servicio: {registro.numeral_servicio} (se recalcula al guardar)</div>
           </div>
         )}
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Estándar</span>
-          <input value={estandar} onChange={(e) => setEstandar(e.target.value)} className="campo" />
-        </label>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-3">
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-slate-600">Estándar</span>
+            <select value={estandar} onChange={(e) => setEstandar(e.target.value)} className="campo">
+              <option value="">Selecciona…</option>
+              {opcionesEstandar.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-slate-600">Complejidad</span>
-            <input value={complejidad} onChange={(e) => setComplejidad(e.target.value)} className="campo" />
+            <select value={complejidad} onChange={(e) => setComplejidad(e.target.value)} className="campo">
+              <option value="">Selecciona…</option>
+              {opcionesComplejidad.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-slate-600">Modalidad</span>
-            <input value={modalidad} onChange={(e) => setModalidad(e.target.value)} className="campo" />
+            <select value={modalidad} onChange={(e) => setModalidad(e.target.value)} className="campo">
+              <option value="">Selecciona…</option>
+              {opcionesModalidad.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
-        <div className="flex gap-2">
+        <div className="mt-1 flex gap-2">
           <Boton variante="secundario" onClick={onClose} className="flex-1">
             Cancelar
           </Boton>

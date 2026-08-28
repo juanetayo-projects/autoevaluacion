@@ -49,11 +49,13 @@ export function Modal({
   onClose,
   titulo,
   children,
+  ancho = 'max-w-lg',
 }: {
   open: boolean
   onClose: () => void
   titulo?: string
   children: ReactNode
+  ancho?: string
 }) {
   if (!open) return null
   return (
@@ -62,7 +64,7 @@ export function Modal({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl"
+        className={`max-h-[90vh] w-full ${ancho} overflow-y-auto rounded-2xl bg-white shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         {titulo && (

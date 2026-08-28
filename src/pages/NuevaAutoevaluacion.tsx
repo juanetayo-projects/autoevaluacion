@@ -323,8 +323,13 @@ export default function NuevaAutoevaluacion() {
 
   const [gruposColapsados, setGruposColapsados] = useState<Record<string, boolean>>({})
 
+  // Al entrar (o cambiar de servicio) los grupos arrancan contraídos — el
+  // usuario los expande a demanda con los chips o "Expandir todo".
   useEffect(() => {
-    setGruposColapsados({})
+    const todos: Record<string, boolean> = {}
+    for (const g of grupos) todos[g.clave] = true
+    setGruposColapsados(todos)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [criterios])
 
   function alternarGrupo(clave: string) {
@@ -726,26 +731,29 @@ export default function NuevaAutoevaluacion() {
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-        <button onClick={expandirTodo} className="rounded-md px-2 py-1 text-xs font-medium text-azul2 hover:bg-slate-100">
-          Expandir todo
-        </button>
-        <button onClick={contraerTodo} className="rounded-md px-2 py-1 text-xs font-medium text-azul2 hover:bg-slate-100">
-          Contraer todo
-        </button>
-        <span className="mx-1 h-4 w-px bg-slate-200" />
-        {grupos.map((g) => {
-          const color = colorDeEstandar(g.clave)
-          return (
-            <button
-              key={g.clave}
-              onClick={() => irAGrupo(g.clave, g.numero)}
-              className={`rounded-md px-2 py-1 text-xs font-medium ${color.fondo} ${color.texto} hover:opacity-75`}
-              title={g.clave}
-            >
-              {g.numero}. {g.clave.replace('Estándar de ', '')}
-            </button>
-          )
-        })}
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          {grupos.map((g) => {
+            const color = colorDeEstandar(g.clave)
+            return (
+              <button
+                key={g.clave}
+                onClick={() => irAGrupo(g.clave, g.numero)}
+                className={`rounded-md px-2 py-1 text-xs font-medium ${color.fondo} ${color.texto} hover:opacity-75`}
+                title={g.clave}
+              >
+                {g.numero}. {g.clave.replace('Estándar de ', '')}
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex shrink-0 items-center gap-1 border-l border-slate-200 pl-2">
+          <button onClick={expandirTodo} className="rounded-md px-2 py-1 text-xs font-medium text-azul2 hover:bg-slate-100">
+            Expandir todo
+          </button>
+          <button onClick={contraerTodo} className="rounded-md px-2 py-1 text-xs font-medium text-azul2 hover:bg-slate-100">
+            Contraer todo
+          </button>
+        </div>
       </div>
 
       {cargandoCriterios ? (
@@ -777,6 +785,8 @@ export default function NuevaAutoevaluacion() {
                       <FilaCriterio
                         key={c.id}
                         criterio={c}
+                        prefijo={g.numero}
+                        color={color}
                         respuesta={respuestas[c.id]}
                         soloLectura={estado === 'finalizada'}
                         guardando={guardando === c.id}
@@ -803,6 +813,8 @@ export default function NuevaAutoevaluacion() {
 
 function FilaCriterio({
   criterio,
+  prefijo,
+  color,
   respuesta,
   soloLectura,
   guardando,
@@ -810,6 +822,8 @@ function FilaCriterio({
   onObservacion,
 }: {
   criterio: Criterio
+  prefijo: number
+  color: { borde: string; fondo: string; texto: string; badge: string }
   respuesta?: RespuestaLocal
   soloLectura: boolean
   guardando: boolean
@@ -817,42 +831,57 @@ function FilaCriterio({
   onObservacion: (obs: string) => void
 }) {
   const botones: { valor: Respuesta; icono: ReactNode; activo: string; label: string }[] = [
-    { valor: 'cumple', icono: <Check size={16} />, activo: 'bg-emerald-600 text-white', label: 'Cumple' },
-    { valor: 'no_cumple', icono: <X size={16} />, activo: 'bg-red-600 text-white', label: 'No Cumple' },
-    { valor: 'no_aplica', icono: <MinusCircle size={16} />, activo: 'bg-slate-500 text-white', label: 'No Aplica' },
+    { valor: 'cumple', icono: <Check size={14} />, activo: 'border-emerald-600 bg-emerald-600 text-white', label: 'Cumple' },
+    { valor: 'no_cumple', icono: <X size={14} />, activo: 'border-red-600 bg-red-600 text-white', label: 'No Cumple' },
+    { valor: 'no_aplica', icono: <MinusCircle size={14} />, activo: 'border-slate-500 bg-slate-500 text-white', label: 'No Aplica' },
   ]
+  const tintFondo =
+    respuesta?.respuesta === 'cumple'
+      ? 'bg-emerald-50/60'
+      : respuesta?.respuesta === 'no_cumple'
+        ? 'bg-red-50/50'
+        : respuesta?.respuesta === 'no_aplica'
+          ? 'bg-slate-50'
+          : 'bg-white'
+
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 text-sm text-slate-700">
-          <span className="font-medium">{criterio.item ?? criterio.numero}.</span> {criterio.criterio}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {guardando && <Loader2 size={16} className="animate-spin text-slate-400" />}
+    <div className={`rounded-xl border border-slate-200 ${tintFondo} p-3.5 shadow-sm transition-shadow hover:shadow-md`}>
+      <div className="flex items-start gap-3">
+        <span
+          className={`mt-0.5 flex h-6 shrink-0 items-center justify-center rounded-md px-2 text-xs font-bold tabular-nums text-white ${color.badge}`}
+        >
+          {prefijo}.{criterio.item ?? criterio.numero}
+        </span>
+        <div className="flex-1 text-sm leading-relaxed text-slate-700">{criterio.criterio}</div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+        {guardando && <Loader2 size={14} className="animate-spin text-slate-400" />}
+        <div className="flex shrink-0 items-center gap-1.5">
           {botones.map((b) => (
             <button
               key={b.valor}
               disabled={soloLectura}
               onClick={() => onResponder(b.valor)}
               title={b.label}
-              className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed ${
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 respuesta?.respuesta === b.valor
                   ? b.activo
-                  : 'border-slate-300 text-slate-400 hover:bg-slate-100'
+                  : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
               {b.icono}
+              {b.label}
             </button>
           ))}
         </div>
+        <input
+          placeholder="Observación (opcional)"
+          disabled={soloLectura}
+          defaultValue={respuesta?.observacion ?? ''}
+          onBlur={(e) => onObservacion(e.target.value)}
+          className="campo min-w-[180px] flex-1 text-xs"
+        />
       </div>
-      <input
-        placeholder="Observación (opcional)"
-        disabled={soloLectura}
-        defaultValue={respuesta?.observacion ?? ''}
-        onBlur={(e) => onObservacion(e.target.value)}
-        className="campo mt-2 text-xs"
-      />
     </div>
   )
 }
