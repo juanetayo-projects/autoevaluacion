@@ -29,6 +29,25 @@ export default function Catalogos() {
   )
 }
 
+// Campo de filtro con ancho fijo (en vez de w-full) para que varios quepan
+// en una sola línea de la FilterBar sin ocupar el ancho completo cada uno.
+function CampoFiltro({
+  label,
+  className = '',
+  children,
+}: {
+  label: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <label className={`shrink-0 text-sm ${className}`}>
+      <span className="mb-1 block truncate font-medium text-slate-600">{label}</span>
+      {children}
+    </label>
+  )
+}
+
 function BotonTab({
   activo,
   onClick,
@@ -306,29 +325,39 @@ function CriteriosTab() {
   const [estandarFiltro, setEstandarFiltro] = useState('')
   const [complejidadFiltro, setComplejidadFiltro] = useState('')
   const [modalidadFiltro, setModalidadFiltro] = useState('')
-  const [servicios, setServicios] = useState<{ id: number; nombre: string }[]>([])
+  const [serviciosFull, setServiciosFull] = useState<{ id: number; nombre: string; grupo_res1732_id: number }[]>([])
   const [grupos, setGrupos] = useState<Grupo[]>([])
+  // Globales, sin filtrar — alimentan el modal de edición (ahí sí se puede
+  // asignar cualquier Estándar/Complejidad/Modalidad a un criterio nuevo).
   const [opcionesEstandar, setOpcionesEstandar] = useState<string[]>([])
   const [opcionesComplejidad, setOpcionesComplejidad] = useState<string[]>([])
   const [opcionesModalidad, setOpcionesModalidad] = useState<string[]>([])
+  // Filtros en cascada, igual que en "Nueva auto-evaluación": Grupo acota
+  // el desplegable de Servicio, y Grupo/Servicio acotan las opciones reales
+  // de Estándar/Complejidad/Modalidad de la barra de filtros.
+  const [opcionesEstandarFiltro, setOpcionesEstandarFiltro] = useState<string[]>([])
+  const [opcionesComplejidadFiltro, setOpcionesComplejidadFiltro] = useState<string[]>([])
+  const [opcionesModalidadFiltro, setOpcionesModalidadFiltro] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [exportando, setExportando] = useState(false)
   const [editando, setEditando] = useState<Criterio | 'nuevo' | null>(null)
   const [eliminando, setEliminando] = useState<Criterio | null>(null)
 
+  const servicios = grupoFiltro ? serviciosFull.filter((s) => s.grupo_res1732_id === grupoFiltro) : serviciosFull
+
   useEffect(() => {
     supabase
       .from('servicios_res1732')
-      .select('id, nombre')
+      .select('id, nombre, grupo_res1732_id')
       .order('nombre')
-      .then(({ data }) => setServicios(data ?? []))
+      .then(({ data }) => setServiciosFull(data ?? []))
     supabase
       .from('grupos_res1732')
       .select('id, nombre')
       .order('nombre')
       .then(({ data }) => setGrupos((data as Grupo[]) ?? []))
-    // Opciones de los desplegables Estándar/Complejidad/Modalidad: valores
-    // reales ya existentes en la tabla, para no permitir texto libre suelto.
+    // Opciones globales (modal): valores reales ya existentes en la tabla,
+    // para no permitir texto libre suelto.
     supabase
       .from('criterios_res1732')
       .select('estandar, complejidad, modalidad')
@@ -339,6 +368,44 @@ function CriteriosTab() {
         setOpcionesModalidad(Array.from(new Set(filas.map((f) => f.modalidad).filter(Boolean))).sort() as string[])
       })
   }, [])
+
+  // Si el Grupo cambia y el Servicio elegido ya no pertenece a él, se limpia
+  // (mismo comportamiento que el selector de servicio de la auto-evaluación).
+  useEffect(() => {
+    if (servicioFiltro && !serviciosFull.some((s) => s.id === servicioFiltro && s.grupo_res1732_id === grupoFiltro)) {
+      setServicioFiltro('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grupoFiltro])
+
+  // Opciones de Estándar/Complejidad/Modalidad de la barra de filtros,
+  // acotadas al Grupo/Servicio elegidos — si el valor actual deja de existir
+  // en la nueva lista, se limpia también.
+  useEffect(() => {
+    let cancelado = false
+    async function cargarOpcionesFiltro() {
+      let q = supabase.from('criterios_res1732').select('estandar, complejidad, modalidad')
+      if (grupoFiltro) q = q.eq('grupo_res1732_id', grupoFiltro)
+      if (servicioFiltro) q = q.eq('servicio_res1732_id', servicioFiltro)
+      const { data } = await q
+      if (cancelado) return
+      const filas = data ?? []
+      const estandares = Array.from(new Set(filas.map((f) => f.estandar).filter(Boolean))).sort()
+      const complejidades = Array.from(new Set(filas.map((f) => f.complejidad).filter(Boolean))).sort()
+      const modalidades = Array.from(new Set(filas.map((f) => f.modalidad).filter(Boolean))).sort() as string[]
+      setOpcionesEstandarFiltro(estandares)
+      setOpcionesComplejidadFiltro(complejidades)
+      setOpcionesModalidadFiltro(modalidades)
+      if (estandarFiltro && !estandares.includes(estandarFiltro)) setEstandarFiltro('')
+      if (complejidadFiltro && !complejidades.includes(complejidadFiltro)) setComplejidadFiltro('')
+      if (modalidadFiltro && !modalidades.includes(modalidadFiltro)) setModalidadFiltro('')
+    }
+    cargarOpcionesFiltro()
+    return () => {
+      cancelado = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grupoFiltro, servicioFiltro])
 
   useEffect(() => {
     cargar()
@@ -376,14 +443,14 @@ function CriteriosTab() {
   async function exportarExcel() {
     setExportando(true)
     try {
-      const columnas = 'numero, item, pagina, criterio, estandar, complejidad, modalidad, grupo_res1732:grupos_res1732(nombre), servicio_res1732:servicios_res1732(nombre)'
+      const columnas = 'numero, item, pagina, criterio, numeral_grupo, numeral_servicio, estandar, complejidad, modalidad, grupo_res1732:grupos_res1732(nombre), servicio_res1732:servicios_res1732(nombre)'
       const { data } = await construirQuery(columnas, false)
-      const filas = (data ?? []) as unknown as (Omit<Criterio, 'id' | 'llave' | 'grupo_res1732_id' | 'servicio_res1732_id' | 'numeral_grupo' | 'numeral_servicio'>)[]
+      const filas = (data ?? []) as unknown as (Omit<Criterio, 'id' | 'llave' | 'grupo_res1732_id' | 'servicio_res1732_id'>)[]
       await exportarCriteriosExcel({
         filtros: [
           ['Buscar en criterio', busqueda || 'Todos'],
-          ['Servicio', servicios.find((s) => s.id === servicioFiltro)?.nombre ?? 'Todos'],
           ['Grupo', grupos.find((g) => g.id === grupoFiltro)?.nombre ?? 'Todos'],
+          ['Servicio', servicios.find((s) => s.id === servicioFiltro)?.nombre ?? 'Todos'],
           ['Estándar', estandarFiltro || 'Todos'],
           ['Complejidad', complejidadFiltro || 'Todas'],
           ['Modalidad', modalidadFiltro || 'Todas'],
@@ -393,6 +460,8 @@ function CriteriosTab() {
           item: c.item ?? '',
           pagina: c.pagina ?? '',
           criterio: c.criterio,
+          numeralGrupo: c.numeral_grupo,
+          numeralServicio: c.numeral_servicio,
           grupo: c.grupo_res1732?.nombre ?? '—',
           servicio: c.servicio_res1732?.nombre ?? '—',
           estandar: c.estandar,
@@ -417,14 +486,21 @@ function CriteriosTab() {
 
   return (
     <Card>
-      <p className="mb-4 text-xs text-slate-500">
-        Tabla maestra de criterios (hoja "AUTOEVALUACION 2026" del Excel, columnas C:L) — {total.toLocaleString()}{' '}
-        registros.
-      </p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-slate-500">
+          Tabla maestra de criterios (hoja "AUTOEVALUACION 2026" del Excel, columnas C:L) — {total.toLocaleString()}{' '}
+          registros.
+        </p>
+        <Boton onClick={() => setEditando('nuevo')}>Nuevo criterio</Boton>
+      </div>
 
+      {/* Filtros en cascada (Grupo acota Servicio; Grupo/Servicio acotan
+          Estándar/Complejidad/Modalidad a los valores que realmente existen
+          para esa combinación) — mismo patrón que Nueva auto-evaluación.
+          Ancho fijo por campo para que quepan los 6 filtros + Exportar en
+          una sola línea. */}
       <FilterBar>
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Buscar en criterio</span>
+        <CampoFiltro label="Buscar en criterio" className="w-28">
           <input
             value={busqueda}
             onChange={(e) => {
@@ -433,27 +509,8 @@ function CriteriosTab() {
             }}
             className="campo"
           />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Servicio</span>
-          <select
-            value={servicioFiltro}
-            onChange={(e) => {
-              setPagina(0)
-              setServicioFiltro(e.target.value ? Number(e.target.value) : '')
-            }}
-            className="campo"
-          >
-            <option value="">Todos</option>
-            {servicios.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Grupo</span>
+        </CampoFiltro>
+        <CampoFiltro label="Grupo" className="w-28">
           <select
             value={grupoFiltro}
             onChange={(e) => {
@@ -469,9 +526,25 @@ function CriteriosTab() {
               </option>
             ))}
           </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Estándar</span>
+        </CampoFiltro>
+        <CampoFiltro label="Servicio" className="w-28">
+          <select
+            value={servicioFiltro}
+            onChange={(e) => {
+              setPagina(0)
+              setServicioFiltro(e.target.value ? Number(e.target.value) : '')
+            }}
+            className="campo"
+          >
+            <option value="">Todos</option>
+            {servicios.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.nombre}
+              </option>
+            ))}
+          </select>
+        </CampoFiltro>
+        <CampoFiltro label="Estándar" className="w-32">
           <select
             value={estandarFiltro}
             onChange={(e) => {
@@ -481,15 +554,14 @@ function CriteriosTab() {
             className="campo"
           >
             <option value="">Todos</option>
-            {opcionesEstandar.map((o) => (
+            {opcionesEstandarFiltro.map((o) => (
               <option key={o} value={o}>
-                {o}
+                {o.replace('Estándar de ', '')}
               </option>
             ))}
           </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Complejidad</span>
+        </CampoFiltro>
+        <CampoFiltro label="Complejidad" className="w-24">
           <select
             value={complejidadFiltro}
             onChange={(e) => {
@@ -499,15 +571,14 @@ function CriteriosTab() {
             className="campo"
           >
             <option value="">Todas</option>
-            {opcionesComplejidad.map((o) => (
+            {opcionesComplejidadFiltro.map((o) => (
               <option key={o} value={o}>
                 {o}
               </option>
             ))}
           </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block font-medium text-slate-600">Modalidad</span>
+        </CampoFiltro>
+        <CampoFiltro label="Modalidad" className="w-28">
           <select
             value={modalidadFiltro}
             onChange={(e) => {
@@ -517,18 +588,15 @@ function CriteriosTab() {
             className="campo"
           >
             <option value="">Todas</option>
-            {opcionesModalidad.map((o) => (
+            {opcionesModalidadFiltro.map((o) => (
               <option key={o} value={o}>
                 {o}
               </option>
             ))}
           </select>
-        </label>
-        <Boton variante="secundario" onClick={exportarExcel} disabled={exportando}>
+        </CampoFiltro>
+        <Boton variante="secundario" onClick={exportarExcel} disabled={exportando} className="shrink-0">
           {exportando ? 'Exportando…' : 'Exportar Excel'}
-        </Boton>
-        <Boton onClick={() => setEditando('nuevo')} className="ml-auto">
-          Nuevo criterio
         </Boton>
       </FilterBar>
 
@@ -612,7 +680,7 @@ function CriteriosTab() {
       <ModalEditarCriterio
         registro={editando}
         grupos={grupos}
-        servicios={servicios}
+        servicios={serviciosFull}
         opcionesEstandar={opcionesEstandar}
         opcionesComplejidad={opcionesComplejidad}
         opcionesModalidad={opcionesModalidad}

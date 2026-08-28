@@ -60,6 +60,11 @@ export async function exportarAutoevaluacionExcel(params: {
   const ws = wb.addWorksheet('Auto-evaluación', {
     pageSetup: { orientation: 'landscape', fitToPage: true },
   })
+  // Agrupación nativa de filas de Excel (los +/- del margen izquierdo): la
+  // cabecera de cada Estándar queda en outlineLevel 0 y sirve de resumen;
+  // las filas de criterios van en nivel 1. summaryBelow:false porque la
+  // cabecera está ARRIBA del grupo, no abajo.
+  ws.properties.outlineProperties = { summaryBelow: false, summaryRight: false }
 
   ws.columns = [
     { key: 'no', width: 14 },
@@ -140,6 +145,7 @@ export async function exportarAutoevaluacionExcel(params: {
 
     for (const item of grupo.items) {
       const row = ws.getRow(fila)
+      row.outlineLevel = 1
       row.getCell(1).value = item.numeroMostrado
       row.getCell(2).value = item.criterio
       row.getCell(2).alignment = { wrapText: true, vertical: 'top' }

@@ -17,6 +17,11 @@ async function crearLibro(titulo: string, subtitulo: string, filtros: [string, s
   const ExcelJS = (await import('exceljs')).default
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Datos', { pageSetup: { orientation: 'landscape', fitToPage: true } })
+  // Agrupación nativa de filas de Excel (los +/- del margen izquierdo): la
+  // fila de cabecera de cada grupo (color) queda en outlineLevel 0 y sirve
+  // de resumen; las filas de datos van en nivel 1. summaryBelow:false
+  // porque la cabecera está ARRIBA del grupo, no abajo.
+  ws.properties.outlineProperties = { summaryBelow: false, summaryRight: false }
 
   if (logoUrl) {
     try {
@@ -123,6 +128,7 @@ export async function exportarServiciosExcel(params: {
 
     for (const s of items) {
       const row = ws.getRow(fila)
+      row.outlineLevel = 1
       row.getCell(2).value = s.nombre
       row.getCell(2).font = { bold: true }
       row.getCell(3).value = s.descripcion
@@ -160,6 +166,8 @@ export type CriterioExport = {
   criterio: string
   grupo: string
   servicio: string
+  numeralGrupo: string
+  numeralServicio: string
   estandar: string
   complejidad: string
   modalidad: string
@@ -179,9 +187,11 @@ export async function exportarCriteriosExcel(params: {
   ws.columns = [
     { key: 'a', width: 4 },
     { key: 'no', width: 10 },
-    { key: 'criterio', width: 70 },
+    { key: 'criterio', width: 65 },
     { key: 'grupo', width: 22 },
     { key: 'servicio', width: 22 },
+    { key: 'numeralGrupo', width: 12 },
+    { key: 'numeralServicio', width: 14 },
     { key: 'complejidad', width: 16 },
     { key: 'modalidad', width: 30 },
   ]
@@ -191,7 +201,7 @@ export async function exportarCriteriosExcel(params: {
   let fila = filaInicial
   for (const [estandar, items] of grupos) {
     const colorHex = COLORES_ESTANDAR_HEX[estandar] ?? COLOR_ESTANDAR_DEFECTO
-    ws.mergeCells(`A${fila}:G${fila}`)
+    ws.mergeCells(`A${fila}:I${fila}`)
     const cabecera = ws.getCell(`A${fila}`)
     cabecera.value = `${estandar}  (${items.length} criterios)`
     cabecera.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${colorHex}` } }
@@ -201,7 +211,7 @@ export async function exportarCriteriosExcel(params: {
     fila++
 
     const filaEncabezados = ws.getRow(fila)
-    const encabezados = ['', 'No.', 'Criterio', 'Grupo', 'Servicio', 'Complejidad', 'Modalidad']
+    const encabezados = ['', 'No.', 'Criterio', 'Grupo', 'Servicio', 'Numeral Grupo', 'Numeral Servicio', 'Complejidad', 'Modalidad']
     encabezados.forEach((texto, i) => {
       if (i === 0) return
       const cell = filaEncabezados.getCell(i + 1)
@@ -213,14 +223,17 @@ export async function exportarCriteriosExcel(params: {
 
     for (const c of items) {
       const row = ws.getRow(fila)
+      row.outlineLevel = 1
       row.getCell(2).value = c.item ? `${c.numero} (${c.item})` : c.numero
       row.getCell(3).value = c.criterio
       row.getCell(3).alignment = { wrapText: true, vertical: 'top' }
       row.getCell(4).value = c.grupo
       row.getCell(5).value = c.servicio
-      row.getCell(6).value = c.complejidad
-      row.getCell(7).value = c.modalidad
-      for (let col = 2; col <= 7; col++) row.getCell(col).alignment = { ...row.getCell(col).alignment, vertical: 'top' }
+      row.getCell(6).value = c.numeralGrupo
+      row.getCell(7).value = c.numeralServicio
+      row.getCell(8).value = c.complejidad
+      row.getCell(9).value = c.modalidad
+      for (let col = 2; col <= 9; col++) row.getCell(col).alignment = { ...row.getCell(col).alignment, vertical: 'top' }
       fila++
     }
     fila++
