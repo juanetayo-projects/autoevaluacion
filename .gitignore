@@ -15,6 +15,10 @@ dist-ssr
 # Insumos y documentos internos (Excel/PDF fuente, no se publican)
 docs/
 
+# Imágenes de trabajo sueltas en la raíz (staging del cliente) — los
+# assets que sí se usan en la app viven en public/images/
+/images/
+
 # Secrets
 .env
 .env.local

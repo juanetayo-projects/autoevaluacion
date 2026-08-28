@@ -28,6 +28,11 @@ type Criterio = {
   // ej. "5" para criterios universales, "6.2.17" para el propio de un
   // servicio) — es el número que se antepone al Item al mostrar el criterio.
   numeral_servicio: string
+  // true = criterio del capítulo 5 "Todo los servicios" (se responde
+  // siempre, sin importar el Servicio elegido); false = propio del
+  // Servicio elegido en la pantalla inicial. Viene de qué consulta lo trajo
+  // (buscarCriterios), no se infiere del numeral por robustez.
+  esUniversal: boolean
 }
 
 // La numeración de "Item" se reinicia dentro de cada Estándar (ej. hay un
@@ -48,6 +53,14 @@ const COLOR_ESTANDAR_DEFECTO = { borde: 'border-slate-400', fondo: 'bg-slate-50'
 function colorDeEstandar(estandar: string) {
   return COLORES_ESTANDAR[estandar] ?? COLOR_ESTANDAR_DEFECTO
 }
+
+// Distinción visual universal (Cap. 5, "Todo los servicios") vs. propio del
+// Servicio elegido — independiente del color de cada Estándar, para que se
+// note de un vistazo cuál criterio aplica siempre y cuál es específico.
+const COLOR_UNIVERSAL = { badge: 'bg-slate-500', texto: 'text-slate-600', fondo: 'bg-slate-100' }
+const COLOR_PROPIO = { badge: 'bg-teal-600', texto: 'text-teal-700', fondo: 'bg-teal-50' }
+type FiltroRespuestaValor = Respuesta | 'todos' | 'pendiente'
+type FiltroServicioValor = 'todos' | 'universal' | 'propio'
 type RespuestaLocal = { respuesta: Respuesta; observacion: string; respuestaId?: number }
 type Compromiso = {
   respuestaId: number
@@ -213,7 +226,10 @@ export default function NuevaAutoevaluacion() {
     ])
     const dataUniversales = (universalesResp as { data: Criterio[] | null }).data ?? []
 
-    const todos = [...(dataPropios ?? []), ...dataUniversales].sort((a, b) => a.numero - b.numero)
+    const todos = [
+      ...(dataPropios ?? []).map((c) => ({ ...c, esUniversal: false })),
+      ...dataUniversales.map((c) => ({ ...c, esUniversal: true })),
+    ].sort((a, b) => a.numero - b.numero)
     setCriterios(todos)
     setCargandoCriterios(false)
   }
@@ -336,14 +352,15 @@ export default function NuevaAutoevaluacion() {
         mapaSub.get(c.numeral_servicio)!.push(c)
       }
       const subgrupos = Array.from(mapaSub.entries())
-        .map(([numeral, sitems]) => ({ numeral, items: sitems }))
+        .map(([numeral, sitems]) => ({ numeral, items: sitems, esUniversal: sitems[0].esUniversal }))
         .sort((a, b) => a.numeral.localeCompare(b.numeral, undefined, { numeric: true }))
       return { clave, items, numero: i + 1, subgrupos }
     })
   }, [criterios])
 
   const [gruposColapsados, setGruposColapsados] = useState<Record<string, boolean>>({})
-  const [filtroGrupo, setFiltroGrupo] = useState<Record<string, Respuesta | 'todos'>>({})
+  const [filtroGrupo, setFiltroGrupo] = useState<Record<string, FiltroRespuestaValor>>({})
+  const [filtroServicioGrupo, setFiltroServicioGrupo] = useState<Record<string, FiltroServicioValor>>({})
 
   // Al entrar (o cambiar de servicio) los grupos arrancan contraídos — el
   // usuario los expande a demanda con los chips o "Expandir todo".
@@ -373,9 +390,10 @@ export default function NuevaAutoevaluacion() {
     document.getElementById(`grupo-${numero}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  function filtrarItems(items: Criterio[], filtro: Respuesta | 'todos') {
-    if (filtro === 'todos') return items
-    return items.filter((c) => respuestas[c.id]?.respuesta === filtro)
+  function filtrarItems(items: Criterio[], filtroRespuesta: FiltroRespuestaValor) {
+    if (filtroRespuesta === 'todos') return items
+    if (filtroRespuesta === 'pendiente') return items.filter((c) => !respuestas[c.id]?.respuesta)
+    return items.filter((c) => respuestas[c.id]?.respuesta === filtroRespuesta)
   }
 
   const noCumpleSinCompromiso = useMemo(() => {
@@ -497,11 +515,11 @@ export default function NuevaAutoevaluacion() {
       <div>
         <PageHeader titulo="Nueva auto-evaluación" />
         <Card className="mx-auto max-w-2xl">
-          <div className="mb-5 flex justify-center">
+          <div className="mb-5 overflow-hidden rounded-xl">
             <img
-              src={`${import.meta.env.BASE_URL}images/logo_cacsb2.png`}
-              alt="CAC Santa Bárbara"
-              className="h-12"
+              src={`${import.meta.env.BASE_URL}images/banner_resolucion1732.webp`}
+              alt="Resolución 1732 de 2026 — CAC Santa Bárbara"
+              className="w-full"
             />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -769,8 +787,10 @@ export default function NuevaAutoevaluacion() {
         </div>
       </Modal>
 
-      {/* Cabecera compacta en columnas: Servicio | Avance | Agrupadores (2 col) | Descripción (con scroll) */}
-      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_88px_240px_220px]">
+      {/* Cabecera compacta en columnas: Servicio | Avance | Agrupadores (2 col) | Descripción (con scroll).
+          Servicio/Agrupadores/Descripción reparten el espacio en proporción (1.3:1:1) en vez de que
+          Servicio absorba todo el ancho sobrante — Avance queda fijo porque el anillo tiene tamaño fijo. */}
+      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,1.3fr)_96px_minmax(200px,1fr)_minmax(200px,1fr)]">
         <div className="min-w-0">
           <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
           <div className="truncate text-xs text-slate-500">
@@ -855,10 +875,11 @@ export default function NuevaAutoevaluacion() {
             const diligenciados = g.items.filter((c) => !!respuestas[c.id]?.respuesta).length
             const pendientes = g.items.length - diligenciados
             const filtro = filtroGrupo[g.clave] ?? 'todos'
+            const filtroServicio = filtroServicioGrupo[g.clave] ?? 'todos'
             return (
               <div key={g.clave} id={`grupo-${g.numero}`} className="scroll-mt-24">
                 <div
-                  className={`flex w-full flex-wrap items-center gap-2 rounded-lg border-l-4 ${color.borde} ${color.fondo} px-3 py-2`}
+                  className={`flex w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border-l-4 ${color.borde} ${color.fondo} px-3 py-2`}
                 >
                   <button onClick={() => alternarGrupo(g.clave)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <span className={`rounded ${color.badge} px-2 py-0.5 text-xs font-bold text-white`}>
@@ -877,22 +898,34 @@ export default function NuevaAutoevaluacion() {
                     <span className="shrink-0 text-xs text-slate-400">{colapsado ? 'Expandir' : 'Contraer'}</span>
                   </button>
                   {!colapsado && (
-                    <FiltroRespuestas
-                      valor={filtro}
-                      onCambiar={(f) => setFiltroGrupo((prev) => ({ ...prev, [g.clave]: f }))}
-                    />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <FiltroServicio
+                        valor={filtroServicio}
+                        onCambiar={(f) => setFiltroServicioGrupo((prev) => ({ ...prev, [g.clave]: f }))}
+                      />
+                      <FiltroRespuestas
+                        valor={filtro}
+                        onCambiar={(f) => setFiltroGrupo((prev) => ({ ...prev, [g.clave]: f }))}
+                      />
+                    </div>
                   )}
                 </div>
                 {!colapsado && (
                   <div className="mt-2 flex flex-col gap-3 pl-2">
                     {g.subgrupos.map((sub) => {
+                      if (filtroServicio === 'universal' && !sub.esUniversal) return null
+                      if (filtroServicio === 'propio' && sub.esUniversal) return null
                       const itemsFiltrados = filtrarItems(sub.items, filtro)
                       if (itemsFiltrados.length === 0) return null
+                      const colorSub = sub.esUniversal ? COLOR_UNIVERSAL : COLOR_PROPIO
                       return (
-                        <div key={sub.numeral} className="flex flex-col gap-2">
+                        <div key={sub.numeral} className={`flex flex-col gap-2 rounded-lg p-2 ${colorSub.fondo}`}>
                           <div className="flex items-center gap-2 pl-1">
-                            <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-white ${color.badge} opacity-80`}>
+                            <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-white ${colorSub.badge}`}>
                               {sub.numeral}
+                            </span>
+                            <span className={`text-[11px] font-semibold ${colorSub.texto}`}>
+                              {sub.esUniversal ? 'Cap. 5 · Todo los servicios' : `Propio de ${servicioSeleccionado?.nombre ?? 'este servicio'}`}
                             </span>
                             <span className="text-[11px] font-medium text-slate-400">
                               {itemsFiltrados.length} de {sub.items.length}
@@ -930,18 +963,52 @@ export default function NuevaAutoevaluacion() {
   )
 }
 
+function FiltroServicio({
+  valor,
+  onCambiar,
+}: {
+  valor: FiltroServicioValor
+  onCambiar: (f: FiltroServicioValor) => void
+}) {
+  const opciones: { valor: FiltroServicioValor; label: string; activo: string }[] = [
+    { valor: 'todos', label: 'Todos', activo: 'bg-slate-700 text-white' },
+    { valor: 'universal', label: 'Cap. 5 · Todo los servicios', activo: COLOR_UNIVERSAL.badge + ' text-white' },
+    { valor: 'propio', label: 'Propio del servicio', activo: COLOR_PROPIO.badge + ' text-white' },
+  ]
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+      <span className="text-[11px] font-medium text-slate-500">Servicio:</span>
+      {opciones.map((o) => (
+        <button
+          key={o.valor}
+          onClick={(e) => {
+            e.stopPropagation()
+            onCambiar(o.valor)
+          }}
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+            valor === o.valor ? o.activo : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function FiltroRespuestas({
   valor,
   onCambiar,
 }: {
-  valor: Respuesta | 'todos'
-  onCambiar: (f: Respuesta | 'todos') => void
+  valor: FiltroRespuestaValor
+  onCambiar: (f: FiltroRespuestaValor) => void
 }) {
-  const opciones: { valor: Respuesta | 'todos'; label: string; activo: string }[] = [
+  const opciones: { valor: FiltroRespuestaValor; label: string; activo: string }[] = [
     { valor: 'todos', label: 'Todos', activo: 'bg-slate-700 text-white' },
     { valor: 'cumple', label: 'Cumple', activo: 'bg-emerald-600 text-white' },
     { valor: 'no_cumple', label: 'No Cumple', activo: 'bg-red-600 text-white' },
     { valor: 'no_aplica', label: 'No Aplica', activo: 'bg-slate-500 text-white' },
+    { valor: 'pendiente', label: 'Pendiente', activo: 'bg-amber-500 text-white' },
   ]
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1.5">
