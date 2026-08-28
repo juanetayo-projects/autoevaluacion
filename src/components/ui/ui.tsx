@@ -13,12 +13,12 @@ export function MetricCard({
   sub?: string
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-azul to-azul2 p-5 text-white shadow-lg shadow-azul/20">
+    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-azul to-azul2 p-4 text-white shadow-lg shadow-azul/20">
       <div className="flex items-center justify-between">
         <span className="text-sm/5 opacity-80">{titulo}</span>
         {icono}
       </div>
-      <div className="mt-2 text-3xl font-bold">{valor}</div>
+      <div className="mt-1.5 text-2xl font-bold">{valor}</div>
       {sub && <div className="mt-1 text-xs opacity-75">{sub}</div>}
     </div>
   )

@@ -514,20 +514,20 @@ export default function NuevaAutoevaluacion() {
     return (
       <div>
         <PageHeader titulo="Nueva auto-evaluación" />
-        <Card className="mx-auto max-w-2xl">
-          <div className="mb-3">
+        <Card className="mx-auto max-w-2xl p-4">
+          <div className="mb-2">
             <img
               src={`${import.meta.env.BASE_URL}images/banner_resolucion1732.webp`}
               alt="Resolución 1732 de 2026 — CAC Santa Bárbara"
               className="w-full rounded-lg"
             />
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <Campo label="Empresa">
               <select
                 value={empresaId ?? ''}
                 onChange={(e) => setEmpresaId(Number(e.target.value))}
-                className="campo"
+                className="campo py-1.5"
               >
                 {empresas.map((e) => (
                   <option key={e.id} value={e.id}>
@@ -537,7 +537,7 @@ export default function NuevaAutoevaluacion() {
               </select>
             </Campo>
             <Campo label="Sede">
-              <select value={sedeId ?? ''} onChange={(e) => setSedeId(Number(e.target.value))} className="campo">
+              <select value={sedeId ?? ''} onChange={(e) => setSedeId(Number(e.target.value))} className="campo py-1.5">
                 <option value="">Selecciona…</option>
                 {sedes.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -547,16 +547,16 @@ export default function NuevaAutoevaluacion() {
               </select>
             </Campo>
             <Campo label="Lugar">
-              <input value={lugar} onChange={(e) => setLugar(e.target.value)} className="campo" />
+              <input value={lugar} onChange={(e) => setLugar(e.target.value)} className="campo py-1.5" />
             </Campo>
             <Campo label="Fecha">
-              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="campo" />
+              <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="campo py-1.5" />
             </Campo>
             <Campo label="Servicio" className="sm:col-span-2">
               <select
                 value={servicioResId ?? ''}
                 onChange={(e) => alSeleccionarServicio(Number(e.target.value))}
-                className="campo"
+                className="campo py-1.5"
               >
                 <option value="">Selecciona…</option>
                 {serviciosRes.map((s) => (
@@ -568,13 +568,13 @@ export default function NuevaAutoevaluacion() {
             </Campo>
             {servicioSeleccionado && (
               <Campo label="Grupo" className="sm:col-span-2">
-                <div className="campo bg-slate-50 text-slate-500">
+                <div className="campo bg-slate-50 py-1.5 text-slate-500">
                   {servicioSeleccionado.grupo_res1732?.nombre ?? '—'}
                 </div>
               </Campo>
             )}
             <Campo label="Modalidad">
-              <select value={modalidadFiltro} onChange={(e) => setModalidadFiltro(e.target.value)} className="campo">
+              <select value={modalidadFiltro} onChange={(e) => setModalidadFiltro(e.target.value)} className="campo py-1.5">
                 <option value={TODAS}>Todas</option>
                 {modalidades.map((m) => (
                   <option key={m} value={m}>
@@ -587,7 +587,7 @@ export default function NuevaAutoevaluacion() {
               <select
                 value={complejidadFiltro}
                 onChange={(e) => setComplejidadFiltro(e.target.value)}
-                className="campo"
+                className="campo py-1.5"
               >
                 <option value={TODAS}>Todas</option>
                 {complejidades.map((c) => (
@@ -598,7 +598,7 @@ export default function NuevaAutoevaluacion() {
               </select>
             </Campo>
           </div>
-          <div className="mt-6 flex gap-2">
+          <div className="mt-4 flex gap-2">
             <Boton variante="secundario" onClick={() => navigate('/')} className="flex-1">
               Cancelar
             </Boton>
@@ -789,22 +789,23 @@ export default function NuevaAutoevaluacion() {
 
       {/* Cabecera compacta en columnas: Servicio | Descripción | Avance | Agrupadores (2 col).
           Servicio/Descripción/Agrupadores reparten el espacio en proporción (1.3:1:1) en vez de que
-          Servicio absorba todo el ancho sobrante — Avance queda fijo porque el anillo tiene tamaño fijo. */}
-      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,1.3fr)_minmax(200px,1fr)_96px_minmax(200px,1fr)]">
-        <div className="flex h-full min-w-0 flex-col">
-          <div className="shrink-0">
-            <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
-            {estado === 'finalizada' && (
-              <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                Finalizada
-              </span>
-            )}
-          </div>
+          Servicio absorba todo el ancho sobrante — Avance queda fijo porque el anillo tiene tamaño fijo.
+          Fondo azul claro (en vez de blanco) + borde/sombra marcados para que se note como panel
+          flotante — antes, al pegarse arriba de la lista con fondo blanco liso, se confundía con
+          las tarjetas de criterios y la altura sin tope hacía que tapara varias preguntas a la vez.
+          Las 3 columnas con contenido variable (Servicio, Descripción, Agrupadores) usan el MISMO
+          max-h fijo (no flex-1 sin tope) para que la cabecera nunca crezca más de lo necesario. */}
+      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border-2 border-azul/15 bg-gradient-to-br from-sky-50 to-blue-50 p-3 shadow-lg shadow-azul/10 lg:grid-cols-[minmax(220px,1.3fr)_minmax(200px,1fr)_96px_minmax(200px,1fr)]">
+        <div className="min-w-0">
+          <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
+          {estado === 'finalizada' && (
+            <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+              Finalizada
+            </span>
+          )}
           {/* Filtros seleccionados en líneas independientes, agrupados por color:
-              Ubicación (Empresa/Sede/Lugar) y Cuándo/criterios (Fecha/Modalidad/Complejidad).
-              flex-1 en vez de alto natural: así el borde llega hasta el mismo fondo que la
-              columna de Descripción (ambas quedan alineadas sin importar cuál tenga más texto). */}
-          <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-200 text-[11px]">
+              Ubicación (Empresa/Sede/Lugar) y Cuándo/criterios (Fecha/Modalidad/Complejidad). */}
+          <div className="mt-2 max-h-32 overflow-y-auto rounded-lg border border-slate-200 text-[11px]">
             <FilaEtiqueta etiqueta="Empresa" valor={empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} tono="bg-sky-50" />
             <FilaEtiqueta etiqueta="Sede" valor={sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} tono="bg-sky-50/60" />
             <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50" />
@@ -814,12 +815,12 @@ export default function NuevaAutoevaluacion() {
           </div>
         </div>
 
-        <div className="flex h-full flex-col lg:border-l lg:border-slate-100 lg:pl-3">
-          <span className="mb-1 block shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <div className="lg:border-l lg:border-azul/10 lg:pl-3">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Descripción del servicio
           </span>
           {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1 text-xs leading-snug text-slate-600">
+            <div className="max-h-32 overflow-y-auto rounded-lg bg-white/60 p-1.5 pr-2 text-xs leading-snug text-slate-600">
               {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
               {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
             </div>
@@ -828,7 +829,7 @@ export default function NuevaAutoevaluacion() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 lg:flex-col lg:items-center lg:justify-center lg:gap-1 lg:border-l lg:border-slate-100 lg:pl-3">
+        <div className="flex items-center gap-2 lg:flex-col lg:items-center lg:justify-center lg:gap-1 lg:border-l lg:border-azul/10 lg:pl-3">
           <AnilloAvance avance={avance} />
           <div className="text-xs leading-tight">
             <div className="font-medium text-slate-600">
@@ -840,9 +841,9 @@ export default function NuevaAutoevaluacion() {
           </div>
         </div>
 
-        <div className="lg:border-l lg:border-slate-100 lg:pl-3">
+        <div className="lg:border-l lg:border-azul/10 lg:pl-3">
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Agrupadores</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Agrupadores</span>
             <div className="flex gap-2">
               <button onClick={expandirTodo} title="Expandir todo" className="text-[11px] font-medium text-azul2 hover:underline">
                 Expandir
@@ -852,7 +853,7 @@ export default function NuevaAutoevaluacion() {
               </button>
             </div>
           </div>
-          <div className="grid max-h-24 grid-cols-2 gap-1 overflow-y-auto pr-1 lg:max-h-none">
+          <div className="grid max-h-32 grid-cols-2 gap-1 overflow-y-auto pr-1">
             {grupos.map((g) => {
               const color = colorDeEstandar(g.clave)
               return (

@@ -248,7 +248,7 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               titulo="Cumple"
               valor={`${pct(resumen?.totalCumple ?? 0)}%`}
@@ -275,10 +275,10 @@ export default function Dashboard() {
             />
           </div>
 
-          <Card className="mb-6">
-            <h2 className="mb-3 text-sm font-semibold text-slate-700">Últimas auto-evaluaciones</h2>
+          <Card className="mb-4 p-4">
+            <h2 className="mb-2 text-sm font-semibold text-slate-700">Últimas auto-evaluaciones</h2>
             {!resumen?.recientes.length ? (
-              <p className="py-6 text-center text-sm text-slate-400">
+              <p className="py-4 text-center text-sm text-slate-400">
                 Todavía no hay auto-evaluaciones registradas{sedeFiltro ? ' para esta sede' : ''}.
               </p>
             ) : (
@@ -287,7 +287,7 @@ export default function Dashboard() {
                   <button
                     key={r.id}
                     onClick={() => navigate(`/nueva/${r.id}`)}
-                    className="flex w-full items-center justify-between py-3 text-left text-sm hover:bg-slate-50"
+                    className="flex w-full items-center justify-between py-1.5 text-left text-sm hover:bg-slate-50"
                   >
                     <span className="font-medium text-slate-700">
                       {r.servicio_res1732?.nombre ?? 'Servicio sin definir'}
@@ -306,7 +306,7 @@ export default function Dashboard() {
           {/* Gráficas del catálogo Res.1732 — independientes de la Sede (son
               metadatos del catálogo, no datos de auto-evaluaciones). El
               filtro de Grupo acota Estándar/Complejidad en vivo. */}
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between">
             <h2 className="text-base font-semibold text-azul">Catálogo Res.1732 en cifras</h2>
           </div>
 
@@ -315,20 +315,12 @@ export default function Dashboard() {
               <Spinner />
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-              <Card>
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+              <Card className="p-4">
                 <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Servicios por Grupo</h3>
                 <p className="mb-3 text-xs text-slate-400">Columna G — {serviciosPorGrupo.reduce((a, s) => a + s.cantidad, 0)} servicios</p>
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={serviciosPorGrupo} layout="vertical" margin={{ top: 4, right: 20, bottom: 4, left: 4 }}>
-                    <defs>
-                      {serviciosPorGrupo.map((s, i) => (
-                        <linearGradient key={i} id={`gradGrupo${i}`} x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor={s.color} stopOpacity={0.55} />
-                          <stop offset="100%" stopColor={s.color} stopOpacity={1} />
-                        </linearGradient>
-                      ))}
-                    </defs>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
                     <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                     <YAxis
@@ -341,17 +333,17 @@ export default function Dashboard() {
                       tickFormatter={nombreCortoGrupo}
                     />
                     <Tooltip content={<TooltipGrafica />} cursor={{ fill: '#f1f5f9' }} />
-                    <Bar dataKey="cantidad" name="Servicios" radius={[0, 8, 8, 0]} maxBarSize={20} animationDuration={800}>
-                      {serviciosPorGrupo.map((_, i) => (
-                        <Cell key={i} fill={`url(#gradGrupo${i})`} />
+                    <Bar dataKey="cantidad" name="Servicios" radius={[0, 8, 8, 0]} maxBarSize={20} isAnimationActive={false}>
+                      {serviciosPorGrupo.map((s, i) => (
+                        <Cell key={i} fill={s.color} />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </Card>
 
-              <Card>
-                <div className="mb-3 flex items-start justify-between gap-2">
+              <Card className="p-4">
+                <div className="mb-2 flex items-start justify-between gap-2">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-700">Criterios por Estándar</h3>
                     <p className="text-xs text-slate-400">{criteriosFiltrados.length.toLocaleString()} criterios</p>
@@ -359,7 +351,7 @@ export default function Dashboard() {
                   <select
                     value={grupoFiltroChart}
                     onChange={(e) => setGrupoFiltroChart(e.target.value ? Number(e.target.value) : '')}
-                    className="campo w-36 shrink-0 text-xs"
+                    className="campo w-36 shrink-0 py-1 text-xs"
                   >
                     <option value="">Todos los grupos</option>
                     {grupos.map((g) => (
@@ -369,7 +361,7 @@ export default function Dashboard() {
                     ))}
                   </select>
                 </div>
-                <ResponsiveContainer width="100%" height={260}>
+                <ResponsiveContainer width="100%" height={200}>
                   <RadarChart data={criteriosPorEstandar} outerRadius="72%">
                     <PolarGrid stroke="#e2e8f0" />
                     <PolarAngleAxis dataKey="estandar" tick={{ fontSize: 9, fill: '#334155' }} />
@@ -388,13 +380,13 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </Card>
 
-              <Card>
+              <Card className="p-4">
                 <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Criterios por Complejidad</h3>
-                <p className="mb-3 text-xs text-slate-400">
+                <p className="mb-2 text-xs text-slate-400">
                   {grupoFiltroChart ? grupos.find((g) => g.id === grupoFiltroChart)?.nombre : 'Todos los grupos'}
                 </p>
                 <div className="relative">
-                  <ResponsiveContainer width="100%" height={260}>
+                  <ResponsiveContainer width="100%" height={200}>
                     <PieChart>
                       <Pie
                         data={criteriosPorComplejidad}
@@ -413,7 +405,7 @@ export default function Dashboard() {
                       <Legend wrapperStyle={{ fontSize: 10 }} />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-x-0 top-[92px] flex flex-col items-center">
+                  <div className="pointer-events-none absolute inset-x-0 top-[68px] flex flex-col items-center">
                     <span className="text-xl font-bold text-azul">{criteriosFiltrados.length}</span>
                     <span className="text-[10px] text-slate-400">criterios</span>
                   </div>
