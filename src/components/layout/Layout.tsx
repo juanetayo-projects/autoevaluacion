@@ -2,6 +2,7 @@ import { type ReactNode, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
+  LayoutGrid,
   ClipboardPlus,
   History,
   Settings2,
@@ -41,6 +42,13 @@ export default function Layout({ children }: { children: ReactNode }) {
           >
             <LayoutDashboard size={18} />
             Dashboard
+          </NavLink>
+          <NavLink
+            to="/dashboard-opciones"
+            className={({ isActive }) => `${itemBase} ${isActive ? itemActivo : itemInactivo}`}
+          >
+            <LayoutGrid size={18} />
+            Dashboard (opciones)
           </NavLink>
           <NavLink
             to="/nueva"
