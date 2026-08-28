@@ -167,6 +167,16 @@ function ServiciosRes1732Tab() {
             ))}
           </select>
         </label>
+        <Boton
+          variante="secundario"
+          onClick={() => {
+            setBusqueda('')
+            setGrupoFiltro('')
+          }}
+          disabled={!busqueda && !grupoFiltro}
+        >
+          Limpiar filtros
+        </Boton>
         <Boton variante="secundario" onClick={exportarExcel} disabled={exportando} className="ml-auto">
           {exportando ? 'Exportando…' : 'Exportar Excel'}
         </Boton>
@@ -500,7 +510,7 @@ function CriteriosTab() {
           Ancho fijo por campo para que quepan los 6 filtros + Exportar en
           una sola línea. */}
       <FilterBar>
-        <CampoFiltro label="Buscar en criterio" className="w-28">
+        <CampoFiltro label="Buscar en criterio" className="w-24">
           <input
             value={busqueda}
             onChange={(e) => {
@@ -510,7 +520,7 @@ function CriteriosTab() {
             className="campo"
           />
         </CampoFiltro>
-        <CampoFiltro label="Grupo" className="w-28">
+        <CampoFiltro label="Grupo" className="w-24">
           <select
             value={grupoFiltro}
             onChange={(e) => {
@@ -527,7 +537,7 @@ function CriteriosTab() {
             ))}
           </select>
         </CampoFiltro>
-        <CampoFiltro label="Servicio" className="w-28">
+        <CampoFiltro label="Servicio" className="w-24">
           <select
             value={servicioFiltro}
             onChange={(e) => {
@@ -544,7 +554,7 @@ function CriteriosTab() {
             ))}
           </select>
         </CampoFiltro>
-        <CampoFiltro label="Estándar" className="w-32">
+        <CampoFiltro label="Estándar" className="w-28">
           <select
             value={estandarFiltro}
             onChange={(e) => {
@@ -561,7 +571,7 @@ function CriteriosTab() {
             ))}
           </select>
         </CampoFiltro>
-        <CampoFiltro label="Complejidad" className="w-24">
+        <CampoFiltro label="Complejidad" className="w-20">
           <select
             value={complejidadFiltro}
             onChange={(e) => {
@@ -595,8 +605,24 @@ function CriteriosTab() {
             ))}
           </select>
         </CampoFiltro>
-        <Boton variante="secundario" onClick={exportarExcel} disabled={exportando} className="shrink-0">
-          {exportando ? 'Exportando…' : 'Exportar Excel'}
+        <Boton
+          variante="secundario"
+          className="shrink-0 px-3"
+          onClick={() => {
+            setPagina(0)
+            setBusqueda('')
+            setServicioFiltro('')
+            setGrupoFiltro('')
+            setEstandarFiltro('')
+            setComplejidadFiltro('')
+            setModalidadFiltro('')
+          }}
+          disabled={!busqueda && !servicioFiltro && !grupoFiltro && !estandarFiltro && !complejidadFiltro && !modalidadFiltro}
+        >
+          Limpiar
+        </Boton>
+        <Boton variante="secundario" onClick={exportarExcel} disabled={exportando} className="shrink-0 px-3">
+          {exportando ? 'Exportando…' : 'Exportar'}
         </Boton>
       </FilterBar>
 

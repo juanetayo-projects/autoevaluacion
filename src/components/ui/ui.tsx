@@ -13,7 +13,7 @@ export function MetricCard({
   sub?: string
 }) {
   return (
-    <div className="rounded-2xl bg-gradient-to-br from-azul to-azul2 p-5 text-white shadow-md">
+    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-azul to-azul2 p-5 text-white shadow-lg shadow-azul/20">
       <div className="flex items-center justify-between">
         <span className="text-sm/5 opacity-80">{titulo}</span>
         {icono}
@@ -37,7 +37,7 @@ export function PageHeader({ titulo, acciones }: { titulo: string; acciones?: Re
 // --- Barra de filtros reutilizable ---
 export function FilterBar({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-md">
       {children}
     </div>
   )
@@ -120,7 +120,7 @@ export function Badge({
 // --- Card contenedora simple ---
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
+    <div className={`rounded-xl border border-slate-200 bg-white p-5 shadow-md ${className}`}>
       {children}
     </div>
   )

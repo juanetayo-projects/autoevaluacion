@@ -22,8 +22,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [adminAbierto, setAdminAbierto] = useState(true)
 
   return (
-    <div className="flex min-h-full">
-      <aside className="flex w-64 flex-shrink-0 flex-col bg-gradient-to-b from-azul to-azul2 px-3 py-5">
+    <div className="flex h-screen overflow-hidden">
+      <aside className="flex w-64 flex-shrink-0 flex-col overflow-y-auto bg-gradient-to-b from-azul to-azul2 px-3 py-5">
         <div className="mb-6 flex flex-col items-center gap-2 px-2 text-center">
           <img
             src={`${import.meta.env.BASE_URL}images/logo_cacsb_blanc.png`}
