@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Check, X, MinusCircle, Loader2, ArrowLeft } from 'lucide-react'
+import { Check, X, MinusCircle, Loader2, ArrowLeft, FileDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { calcularAvance, type Avance, type Respuesta } from '../lib/calculos'
@@ -24,6 +24,10 @@ type Criterio = {
   estandar: string
   complejidad: string
   modalidad: string | null
+  // Numeral oficial del Servicio/Grupo en la Res.1732 (columna I del Excel,
+  // ej. "5" para criterios universales, "6.2.17" para el propio de un
+  // servicio) — es el número que se antepone al Item al mostrar el criterio.
+  numeral_servicio: string
 }
 
 // La numeración de "Item" se reinicia dentro de cada Estándar (ej. hay un
@@ -97,6 +101,7 @@ export default function NuevaAutoevaluacion() {
 
   const [compromisos, setCompromisos] = useState<Record<number, Compromiso>>({})
   const [enviandoCierre, setEnviandoCierre] = useState(false)
+  const [exportando, setExportando] = useState(false)
   const [confirmarSalir, setConfirmarSalir] = useState(false)
   const [duplicado, setDuplicado] = useState<{ id: string; estado: 'borrador' | 'finalizada'; fecha: string } | null>(
     null,
@@ -184,7 +189,7 @@ export default function NuevaAutoevaluacion() {
   async function buscarCriterios(servicioId: number, modalidad: string, complejidad: string) {
     setCargandoCriterios(true)
     const universalId = await obtenerServicioUniversalId()
-    const columnas = 'id, numero, item, criterio, estandar, complejidad, modalidad'
+    const columnas = 'id, numero, item, criterio, estandar, complejidad, modalidad, numeral_servicio'
 
     // Propios del servicio: el filtro de Modalidad/Complejidad aplica, con
     // "Todas"/"No aplica"/vacío como comodín (confirmado con el cliente).
@@ -421,6 +426,40 @@ export default function NuevaAutoevaluacion() {
     }
     await finalizar()
     setEnviandoCierre(false)
+  }
+
+  async function exportarExcel() {
+    setExportando(true)
+    try {
+      const { exportarAutoevaluacionExcel } = await import('../lib/exportarAutoevaluacion')
+      await exportarAutoevaluacionExcel({
+        empresa: empresas.find((e) => e.id === empresaId)?.nombre ?? '—',
+        sede: sedes.find((s) => s.id === sedeId)?.nombre ?? '—',
+        lugar,
+        fecha,
+        servicio: servicioSeleccionado?.nombre ?? '—',
+        modalidad: modalidadFiltro,
+        complejidad: complejidadFiltro,
+        estado,
+        pctCumple: avance.pctCumple,
+        pctNoCumple: avance.pctNoCumple,
+        pctNoAplica: avance.pctNoAplica,
+        diligenciados: avance.diligenciados,
+        total: avance.total,
+        grupos: grupos.map((g) => ({
+          estandar: g.clave,
+          items: g.items.map((c) => ({
+            numeroMostrado: `${c.numeral_servicio}.${c.item ?? c.numero}`,
+            criterio: c.criterio,
+            respuesta: respuestas[c.id]?.respuesta ?? null,
+            observacion: respuestas[c.id]?.observacion ?? '',
+          })),
+        })),
+        logoUrl: `${import.meta.env.BASE_URL}images/logo_cacsb2.png`,
+      })
+    } finally {
+      setExportando(false)
+    }
   }
 
   if (cargandoInicial) {
@@ -669,17 +708,27 @@ export default function NuevaAutoevaluacion() {
 
   return (
     <div>
-      <button
-        onClick={() => (estado === 'borrador' ? setConfirmarSalir(true) : navigate('/'))}
-        className="mb-3 flex items-center gap-1 text-sm text-slate-500 hover:text-azul"
-      >
-        <ArrowLeft size={16} /> {estado === 'borrador' ? 'Salir' : 'Volver al dashboard'}
-      </button>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <button
+          onClick={() => (estado === 'borrador' ? setConfirmarSalir(true) : navigate('/'))}
+          className="flex items-center gap-1 text-sm text-slate-500 hover:text-azul"
+        >
+          <ArrowLeft size={16} /> {estado === 'borrador' ? 'Salir' : 'Volver al dashboard'}
+        </button>
+        <button
+          onClick={exportarExcel}
+          disabled={exportando || criterios.length === 0}
+          className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <FileDown size={15} />
+          {exportando ? 'Exportando…' : 'Exportar Excel'}
+        </button>
+      </div>
 
       <Modal open={confirmarSalir} onClose={() => setConfirmarSalir(false)} titulo="Salir de la auto-evaluación">
         <p className="mb-4 text-sm text-slate-600">
           Tu progreso ({avance.diligenciados}/{avance.total} criterios) ya está guardado como{' '}
-          <strong>borrador</strong>. Puedes continuarlo más tarde desde el Dashboard o el Historial.
+          <strong>borrador</strong>. Puedes continuarlo más tarde desde el Dashboard o Auto-Evaluaciones.
         </p>
         <div className="flex gap-2">
           <Boton variante="secundario" onClick={() => setConfirmarSalir(false)} className="flex-1">
@@ -765,6 +814,8 @@ export default function NuevaAutoevaluacion() {
           {grupos.map((g) => {
             const colapsado = !!gruposColapsados[g.clave]
             const color = colorDeEstandar(g.clave)
+            const diligenciados = g.items.filter((c) => !!respuestas[c.id]?.respuesta).length
+            const pendientes = g.items.length - diligenciados
             return (
               <div key={g.clave} id={`grupo-${g.numero}`} className="scroll-mt-24">
                 <button
@@ -775,8 +826,17 @@ export default function NuevaAutoevaluacion() {
                     {g.numero}
                   </span>
                   <span className={`flex-1 truncate text-sm font-medium ${color.texto}`}>{g.clave}</span>
-                  <span className="text-xs text-slate-400">
-                    {colapsado ? 'Expandir' : 'Contraer'} ({g.items.length})
+                  <span className="hidden shrink-0 items-center gap-2 text-xs text-slate-500 sm:flex">
+                    <span title="Total de preguntas">{g.items.length} preguntas</span>
+                    <span className="text-emerald-600" title="Diligenciadas">
+                      {diligenciados} diligenciadas
+                    </span>
+                    <span className="text-amber-600" title="Pendientes">
+                      {pendientes} pendientes
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs text-slate-400">
+                    {colapsado ? 'Expandir' : 'Contraer'}
                   </span>
                 </button>
                 {!colapsado && (
@@ -785,7 +845,6 @@ export default function NuevaAutoevaluacion() {
                       <FilaCriterio
                         key={c.id}
                         criterio={c}
-                        prefijo={g.numero}
                         color={color}
                         respuesta={respuestas[c.id]}
                         soloLectura={estado === 'finalizada'}
@@ -813,7 +872,6 @@ export default function NuevaAutoevaluacion() {
 
 function FilaCriterio({
   criterio,
-  prefijo,
   color,
   respuesta,
   soloLectura,
@@ -822,7 +880,6 @@ function FilaCriterio({
   onObservacion,
 }: {
   criterio: Criterio
-  prefijo: number
   color: { borde: string; fondo: string; texto: string; badge: string }
   respuesta?: RespuestaLocal
   soloLectura: boolean
@@ -850,7 +907,7 @@ function FilaCriterio({
         <span
           className={`mt-0.5 flex h-6 shrink-0 items-center justify-center rounded-md px-2 text-xs font-bold tabular-nums text-white ${color.badge}`}
         >
-          {prefijo}.{criterio.item ?? criterio.numero}
+          {criterio.numeral_servicio}.{criterio.item ?? criterio.numero}
         </span>
         <div className="flex-1 text-sm leading-relaxed text-slate-700">{criterio.criterio}</div>
       </div>

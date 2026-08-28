@@ -53,7 +53,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             className={({ isActive }) => `${itemBase} ${isActive ? itemActivo : itemInactivo}`}
           >
             <History size={18} />
-            Historial y reportes
+            Auto-Evaluaciones
           </NavLink>
 
           <div className="mt-4 border-t border-white/15 pt-3">

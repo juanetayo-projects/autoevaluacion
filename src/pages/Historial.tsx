@@ -60,7 +60,7 @@ export default function Historial() {
 
   return (
     <div>
-      <PageHeader titulo="Historial y reportes" />
+      <PageHeader titulo="Auto-Evaluaciones" />
 
       <FilterBar>
         <label className="text-sm">
