@@ -5,7 +5,7 @@ import { exportarCriteriosExcel, exportarServiciosExcel } from '../../lib/export
 
 const LOGO_URL = `${import.meta.env.BASE_URL}images/logo_cacsb2.png`
 
-type Tab = 'servicios' | 'criterios' | 'empresas' | 'sedes' | 'ubicaciones'
+type Tab = 'servicios' | 'criterios' | 'empresas' | 'sedes' | 'periodicidades'
 
 export default function Catalogos() {
   const [tab, setTab] = useState<Tab>('servicios')
@@ -27,8 +27,8 @@ export default function Catalogos() {
           <BotonTab activo={tab === 'sedes'} onClick={() => setTab('sedes')}>
             Sedes
           </BotonTab>
-          <BotonTab activo={tab === 'ubicaciones'} onClick={() => setTab('ubicaciones')}>
-            Ubicación
+          <BotonTab activo={tab === 'periodicidades'} onClick={() => setTab('periodicidades')}>
+            Periodicidad
           </BotonTab>
         </div>
       </div>
@@ -37,7 +37,7 @@ export default function Catalogos() {
       {tab === 'criterios' && <CriteriosTab />}
       {tab === 'empresas' && <EmpresasTab />}
       {tab === 'sedes' && <SedesTab />}
-      {tab === 'ubicaciones' && <UbicacionesTab />}
+      {tab === 'periodicidades' && <PeriodicidadesTab />}
     </div>
   )
 }
@@ -346,8 +346,9 @@ function CriteriosTab() {
   const [servicioFiltro, setServicioFiltro] = useState<number | ''>('')
   const [grupoFiltro, setGrupoFiltro] = useState<number | ''>('')
   const [estandarFiltro, setEstandarFiltro] = useState('')
-  const [complejidadFiltro, setComplejidadFiltro] = useState('')
-  const [modalidadFiltro, setModalidadFiltro] = useState('')
+  // Multi-selección (pedido 2026-08-28, punto 8): arrays vacíos = "Todas".
+  const [complejidadFiltro, setComplejidadFiltro] = useState<string[]>([])
+  const [modalidadFiltro, setModalidadFiltro] = useState<string[]>([])
   const [serviciosFull, setServiciosFull] = useState<{ id: number; nombre: string; grupo_res1732_id: number }[]>([])
   const [grupos, setGrupos] = useState<Grupo[]>([])
   // Globales, sin filtrar — alimentan el modal de edición (ahí sí se puede
@@ -420,8 +421,8 @@ function CriteriosTab() {
       setOpcionesComplejidadFiltro(complejidades)
       setOpcionesModalidadFiltro(modalidades)
       if (estandarFiltro && !estandares.includes(estandarFiltro)) setEstandarFiltro('')
-      if (complejidadFiltro && !complejidades.includes(complejidadFiltro)) setComplejidadFiltro('')
-      if (modalidadFiltro && !modalidades.includes(modalidadFiltro)) setModalidadFiltro('')
+      setComplejidadFiltro((prev) => prev.filter((v) => complejidades.includes(v)))
+      setModalidadFiltro((prev) => prev.filter((v) => modalidades.includes(v)))
     }
     cargarOpcionesFiltro()
     return () => {
@@ -447,8 +448,8 @@ function CriteriosTab() {
     if (servicioFiltro) query = query.eq('servicio_res1732_id', servicioFiltro)
     if (grupoFiltro) query = query.eq('grupo_res1732_id', grupoFiltro)
     if (estandarFiltro) query = query.eq('estandar', estandarFiltro)
-    if (complejidadFiltro) query = query.eq('complejidad', complejidadFiltro)
-    if (modalidadFiltro) query = query.eq('modalidad', modalidadFiltro)
+    if (complejidadFiltro.length > 0) query = query.in('complejidad', complejidadFiltro)
+    if (modalidadFiltro.length > 0) query = query.in('modalidad', modalidadFiltro)
     return query
   }
 
@@ -475,8 +476,8 @@ function CriteriosTab() {
           ['Grupo', grupos.find((g) => g.id === grupoFiltro)?.nombre ?? 'Todos'],
           ['Servicio', servicios.find((s) => s.id === servicioFiltro)?.nombre ?? 'Todos'],
           ['Estándar', estandarFiltro || 'Todos'],
-          ['Complejidad', complejidadFiltro || 'Todas'],
-          ['Modalidad', modalidadFiltro || 'Todas'],
+          ['Complejidad', complejidadFiltro.length ? complejidadFiltro.join(', ') : 'Todas'],
+          ['Modalidad', modalidadFiltro.length ? modalidadFiltro.join(', ') : 'Todas'],
         ],
         criterios: filas.map((c) => ({
           numero: c.numero,
@@ -584,16 +585,18 @@ function CriteriosTab() {
             ))}
           </select>
         </CampoFiltro>
-        <CampoFiltro label="Complejidad" className="w-20">
+        {/* multiple: opción múltiple (punto 8 del pedido 2026-08-28) — sin
+            selección = "Todas", ctrl/cmd+click para elegir varias. */}
+        <CampoFiltro label="Complejidad" className="w-32">
           <select
+            multiple
             value={complejidadFiltro}
             onChange={(e) => {
               setPagina(0)
-              setComplejidadFiltro(e.target.value)
+              setComplejidadFiltro(Array.from(e.target.selectedOptions, (o) => o.value))
             }}
-            className="campo"
+            className="campo h-20"
           >
-            <option value="">Todas</option>
             {opcionesComplejidadFiltro.map((o) => (
               <option key={o} value={o}>
                 {o}
@@ -601,16 +604,16 @@ function CriteriosTab() {
             ))}
           </select>
         </CampoFiltro>
-        <CampoFiltro label="Modalidad" className="w-28">
+        <CampoFiltro label="Modalidad" className="w-36">
           <select
+            multiple
             value={modalidadFiltro}
             onChange={(e) => {
               setPagina(0)
-              setModalidadFiltro(e.target.value)
+              setModalidadFiltro(Array.from(e.target.selectedOptions, (o) => o.value))
             }}
-            className="campo"
+            className="campo h-20"
           >
-            <option value="">Todas</option>
             {opcionesModalidadFiltro.map((o) => (
               <option key={o} value={o}>
                 {o}
@@ -627,10 +630,10 @@ function CriteriosTab() {
             setServicioFiltro('')
             setGrupoFiltro('')
             setEstandarFiltro('')
-            setComplejidadFiltro('')
-            setModalidadFiltro('')
+            setComplejidadFiltro([])
+            setModalidadFiltro([])
           }}
-          disabled={!busqueda && !servicioFiltro && !grupoFiltro && !estandarFiltro && !complejidadFiltro && !modalidadFiltro}
+          disabled={!busqueda && !servicioFiltro && !grupoFiltro && !estandarFiltro && complejidadFiltro.length === 0 && modalidadFiltro.length === 0}
         >
           Limpiar
         </Boton>
@@ -939,9 +942,9 @@ function ModalEditarCriterio({
 }
 
 // ============================================================
-// Empresas / Sedes / Ubicación — catálogos simples (tabla independiente
-// cada uno, sección 1 del pedido 2026-08-28). Empresas y Ubicación son
-// listas planas {id, nombre}; Sedes agrega el desplegable de Empresa.
+// Empresas / Sedes / Periodicidad — catálogos simples (tabla independiente
+// cada uno). Empresas y Periodicidad son listas planas {id, nombre}; Sedes
+// agrega el desplegable de Empresa.
 // ============================================================
 
 type RegistroSimple = { id: number; nombre: string }
@@ -967,18 +970,18 @@ function EmpresasTab() {
   )
 }
 
-function UbicacionesTab() {
+function PeriodicidadesTab() {
   return (
     <CatalogoSimpleTab
-      tabla="ubicaciones"
-      etiquetaSingular="ubicación"
-      etiquetaPlural="Ubicación"
-      descripcion="Áreas/servicios físicos de la clínica (pisos, laboratorio, imágenes diagnósticas, hospitalización, etc.). Catálogo independiente, sin relación directa a Sede."
+      tabla="periodicidades"
+      etiquetaSingular="periodicidad"
+      etiquetaPlural="Periodicidad"
+      descripcion="Motivo/frecuencia de la auto-evaluación (Anual, Nuevo Servicio, Extraordinario). Catálogo independiente usado por la cabecera de Nueva auto-evaluación."
     />
   )
 }
 
-// Componente genérico reusado por Empresas y Ubicación: ambas son tablas
+// Componente genérico reusado por Empresas y Periodicidad: ambas son tablas
 // {id, nombre} con el mismo patrón de listar/crear/editar/eliminar.
 function CatalogoSimpleTab({
   tabla,
@@ -986,7 +989,7 @@ function CatalogoSimpleTab({
   etiquetaPlural,
   descripcion,
 }: {
-  tabla: 'empresas' | 'ubicaciones'
+  tabla: 'empresas' | 'periodicidades'
   etiquetaSingular: string
   etiquetaPlural: string
   descripcion: string
@@ -1111,7 +1114,7 @@ function ModalEditarSimple({
   onClose,
   onGuardado,
 }: {
-  tabla: 'empresas' | 'ubicaciones'
+  tabla: 'empresas' | 'periodicidades'
   etiquetaSingular: string
   registro: RegistroSimple | 'nuevo' | null
   onClose: () => void
@@ -1166,7 +1169,7 @@ function ModalEditarSimple({
 }
 
 // ------------------------------------------------------------
-// Sedes — igual patrón que Empresas/Ubicación pero con FK a Empresa.
+// Sedes — igual patrón que Empresas/Periodicidad pero con FK a Empresa.
 // ------------------------------------------------------------
 
 type SedeRegistro = { id: number; nombre: string; empresa_id: number; empresa: { nombre: string } | null }

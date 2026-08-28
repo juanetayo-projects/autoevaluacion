@@ -27,6 +27,13 @@ export default function Historial() {
   const [borrando, setBorrando] = useState(false)
   const [habilitando, setHabilitando] = useState<Fila | null>(null)
   const [guardandoHabilitar, setGuardandoHabilitar] = useState(false)
+  const [fechaFinal, setFechaFinal] = useState(() => new Date().toISOString().slice(0, 10))
+  const [personasEvaluadas, setPersonasEvaluadas] = useState('')
+  const [comentarios, setComentarios] = useState('')
+  const [requierePlanAccion, setRequierePlanAccion] = useState(false)
+  const [planAccionTitulo, setPlanAccionTitulo] = useState('')
+  const [planAccionDescripcion, setPlanAccionDescripcion] = useState('')
+  const [errorHabilitar, setErrorHabilitar] = useState('')
 
   const esAdmin = perfil?.role === 'admin'
   // Habilitar es una aprobación de calidad/cumplimiento, igual de sensible
@@ -59,15 +66,52 @@ export default function Historial() {
     cargar()
   }
 
+  function abrirHabilitar(fila: Fila) {
+    setErrorHabilitar('')
+    setFechaFinal(new Date().toISOString().slice(0, 10))
+    setPersonasEvaluadas('')
+    setComentarios('')
+    setRequierePlanAccion(false)
+    setPlanAccionTitulo('')
+    setPlanAccionDescripcion('')
+    setHabilitando(fila)
+  }
+
   // Solo se puede habilitar una auto-evaluación "finalizada" — ese estado ya
   // garantiza que no quedó ningún criterio pendiente (Finalizar la bloquea
   // mientras avance.pendientes > 0). Reforzado también en BD (constraint
-  // autoevaluaciones_habilitada_requiere_finalizada).
+  // autoevaluaciones_habilitada_requiere_finalizada). Fecha final es
+  // obligatoria (cierra el período evaluado); si se marca que requiere Plan
+  // de Acción, Título y Descripción también lo son.
   async function habilitar() {
     if (!habilitando) return
+    if (!fechaFinal) {
+      setErrorHabilitar('La fecha final es obligatoria.')
+      return
+    }
+    if (requierePlanAccion && (!planAccionTitulo.trim() || !planAccionDescripcion.trim())) {
+      setErrorHabilitar('Título y descripción del Plan de Acción son obligatorios.')
+      return
+    }
+    setErrorHabilitar('')
     setGuardandoHabilitar(true)
-    await supabase.from('autoevaluaciones').update({ habilitada: true }).eq('id', habilitando.id)
+    const { error } = await supabase
+      .from('autoevaluaciones')
+      .update({
+        habilitada: true,
+        fecha_final: fechaFinal,
+        personas_evaluadas: personasEvaluadas ? Number(personasEvaluadas) : null,
+        comentarios_habilitacion: comentarios || null,
+        requiere_plan_accion: requierePlanAccion,
+        plan_accion_titulo: requierePlanAccion ? planAccionTitulo : null,
+        plan_accion_descripcion: requierePlanAccion ? planAccionDescripcion : null,
+      })
+      .eq('id', habilitando.id)
     setGuardandoHabilitar(false)
+    if (error) {
+      setErrorHabilitar(error.message)
+      return
+    }
     setHabilitando(null)
     cargar()
   }
@@ -175,7 +219,7 @@ export default function Historial() {
                             </button>
                           ) : (
                             <button
-                              onClick={() => setHabilitando(f)}
+                              onClick={() => abrirHabilitar(f)}
                               disabled={f.estado !== 'finalizada'}
                               title={
                                 f.estado !== 'finalizada'
@@ -206,13 +250,80 @@ export default function Historial() {
         )}
       </Card>
 
-      <Modal open={!!habilitando} onClose={() => setHabilitando(null)} titulo="Habilitar auto-evaluación">
+      <Modal open={!!habilitando} onClose={() => setHabilitando(null)} titulo="Habilitar auto-evaluación" ancho="max-w-lg">
         <p className="mb-4 text-sm text-slate-600">
-          ¿Marcar como <strong>habilitada</strong> la auto-evaluación de{' '}
-          <strong>{habilitando?.servicio_res1732?.nombre}</strong> del {habilitando?.fecha}? Todas sus preguntas ya
-          están diligenciadas (auto-evaluación finalizada).
+          Auto-evaluación de <strong>{habilitando?.servicio_res1732?.nombre}</strong> del {habilitando?.fecha}. Todas
+          sus preguntas ya están diligenciadas (auto-evaluación finalizada).
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-slate-600">Fecha final</span>
+              <input
+                type="date"
+                value={fechaFinal}
+                onChange={(e) => setFechaFinal(e.target.value)}
+                className="campo"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-slate-600">Personas evaluadas</span>
+              <input
+                type="number"
+                min={0}
+                value={personasEvaluadas}
+                onChange={(e) => setPersonasEvaluadas(e.target.value)}
+                className="campo"
+              />
+            </label>
+          </div>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-slate-600">Comentarios</span>
+            <textarea value={comentarios} onChange={(e) => setComentarios(e.target.value)} className="campo" rows={2} />
+          </label>
+          <div className="text-sm">
+            <span className="mb-1 block font-medium text-slate-600">¿Requiere crear un Plan de Acción?</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setRequierePlanAccion(true)}
+                className={`flex-1 rounded-lg border px-3 py-1.5 text-sm font-medium ${requierePlanAccion ? 'border-azul bg-azul text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+              >
+                Sí
+              </button>
+              <button
+                type="button"
+                onClick={() => setRequierePlanAccion(false)}
+                className={`flex-1 rounded-lg border px-3 py-1.5 text-sm font-medium ${!requierePlanAccion ? 'border-azul bg-azul text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+              >
+                No
+              </button>
+            </div>
+          </div>
+          {requierePlanAccion && (
+            <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+              <label className="text-sm">
+                <span className="mb-1 block font-medium text-slate-600">Título del Plan de Acción</span>
+                <input
+                  value={planAccionTitulo}
+                  onChange={(e) => setPlanAccionTitulo(e.target.value)}
+                  className="campo"
+                />
+              </label>
+              <label className="text-sm">
+                <span className="mb-1 block font-medium text-slate-600">Descripción</span>
+                <textarea
+                  value={planAccionDescripcion}
+                  onChange={(e) => setPlanAccionDescripcion(e.target.value)}
+                  className="campo"
+                  rows={3}
+                />
+              </label>
+            </div>
+          )}
+          {errorHabilitar && <p className="text-sm text-red-600">{errorHabilitar}</p>}
+        </div>
+        <div className="mt-4 flex gap-2">
           <Boton variante="secundario" onClick={() => setHabilitando(null)} className="flex-1">
             Cancelar
           </Boton>

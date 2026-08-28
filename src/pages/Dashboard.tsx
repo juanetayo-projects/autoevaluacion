@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardCheck, ClipboardX, CircleSlash, FileClock, ShieldCheck } from 'lucide-react'
+import { ChevronDown, ChevronRight, ClipboardCheck, ClipboardX, CircleSlash, FileClock, ShieldCheck } from 'lucide-react'
 import {
   ResponsiveContainer,
   BarChart,
@@ -63,6 +63,25 @@ type AutoevaluacionFila = {
   usuario: { nombre: string } | null
 }
 
+// Conteos de Cumple/No Cumple/No Aplica — totales de la auto-evaluación y
+// desglosados por Estándar (punto 10 del pedido 2026-08-28). Los % son sobre
+// el total de preguntas YA RESPONDIDAS de esa fila/Estándar (no sobre el
+// total de criterios aplicables, que exigiría replicar en el Dashboard toda
+// la lógica de filtrado por Modalidad/Complejidad de NuevaAutoevaluacion).
+type ConteoRespuestas = { cumple: number; no_cumple: number; no_aplica: number; total: number }
+function conteoVacio(): ConteoRespuestas {
+  return { cumple: 0, no_cumple: 0, no_aplica: 0, total: 0 }
+}
+function sumarRespuesta(c: ConteoRespuestas, r: string) {
+  if (r === 'cumple') c.cumple++
+  else if (r === 'no_cumple') c.no_cumple++
+  else if (r === 'no_aplica') c.no_aplica++
+  c.total++
+}
+function porcentaje(n: number, total: number) {
+  return total > 0 ? Math.round((n / total) * 100) : 0
+}
+
 // Mismos colores que el resto de la app (NuevaAutoevaluacion.tsx,
 // exportarCatalogo.ts) — mantener sincronizados si se agrega un Estándar.
 const COLORES_ESTANDAR_HEX: Record<string, string> = {
@@ -117,6 +136,12 @@ export default function Dashboard() {
   const [panelHabilitadaFiltro, setPanelHabilitadaFiltro] = useState<'todos' | 'si' | 'no'>('todos')
   const [autoevaluacionesPanel, setAutoevaluacionesPanel] = useState<AutoevaluacionFila[]>([])
   const [cargandoPanel, setCargandoPanel] = useState(true)
+  // Totales y desglose por Estándar por auto-evaluación (punto 10) — claves
+  // por autoevaluacion_id. filaExpandida controla qué fila muestra el
+  // desglose por Estándar (una a la vez, para no saturar la tabla).
+  const [totalesPorFila, setTotalesPorFila] = useState<Record<string, ConteoRespuestas>>({})
+  const [desglosePorEstandar, setDesglosePorEstandar] = useState<Record<string, Record<string, ConteoRespuestas>>>({})
+  const [filaExpandida, setFilaExpandida] = useState<string | null>(null)
 
   useEffect(() => {
     supabase
@@ -162,8 +187,48 @@ export default function Dashboard() {
     if (panelEstadoFiltro !== 'todos') q = q.eq('estado', panelEstadoFiltro)
     if (panelHabilitadaFiltro !== 'todos') q = q.eq('habilitada', panelHabilitadaFiltro === 'si')
     const { data } = await q
-    setAutoevaluacionesPanel((data as unknown as AutoevaluacionFila[]) ?? [])
+    const filas = (data as unknown as AutoevaluacionFila[]) ?? []
+    setAutoevaluacionesPanel(filas)
     setCargandoPanel(false)
+    await cargarDesglose(filas.map((f) => f.id))
+  }
+
+  // Trae las respuestas de las auto-evaluaciones filtradas (con el Estándar
+  // de su criterio) y las agrega en el cliente — un totalizado general por
+  // fila y otro por Estándar (punto 10). Paginado por el tope de 1.000 filas
+  // del proyecto Supabase, igual que traerTodosLosCriterios().
+  async function cargarDesglose(ids: string[]) {
+    if (ids.length === 0) {
+      setTotalesPorFila({})
+      setDesglosePorEstandar({})
+      return
+    }
+    const TAMANO_PAGINA = 1000
+    const filas: { autoevaluacion_id: string; respuesta: string; criterio: { estandar: string } | null }[] = []
+    for (let desde = 0; ; desde += TAMANO_PAGINA) {
+      const { data } = await supabase
+        .from('autoevaluaciones_respuestas')
+        .select('autoevaluacion_id, respuesta, criterio:criterios_res1732(estandar)')
+        .in('autoevaluacion_id', ids)
+        .range(desde, desde + TAMANO_PAGINA - 1)
+      const pagina = (data as unknown as typeof filas) ?? []
+      filas.push(...pagina)
+      if (pagina.length < TAMANO_PAGINA) break
+    }
+
+    const totales: Record<string, ConteoRespuestas> = {}
+    const porEstandar: Record<string, Record<string, ConteoRespuestas>> = {}
+    for (const f of filas) {
+      const estandar = f.criterio?.estandar ?? 'Sin estándar'
+      if (!totales[f.autoevaluacion_id]) totales[f.autoevaluacion_id] = conteoVacio()
+      sumarRespuesta(totales[f.autoevaluacion_id], f.respuesta)
+
+      if (!porEstandar[f.autoevaluacion_id]) porEstandar[f.autoevaluacion_id] = {}
+      if (!porEstandar[f.autoevaluacion_id][estandar]) porEstandar[f.autoevaluacion_id][estandar] = conteoVacio()
+      sumarRespuesta(porEstandar[f.autoevaluacion_id][estandar], f.respuesta)
+    }
+    setTotalesPorFila(totales)
+    setDesglosePorEstandar(porEstandar)
   }
 
   const limpiarFiltrosPanel = () => {
@@ -399,17 +464,22 @@ export default function Dashboard() {
                 Todavía no hay auto-evaluaciones registradas{sedeFiltro ? ' para esta sede' : ''}.
               </p>
             ) : (
+              // Columnas de ancho fijo (grid, no flex justify-between) para
+              // que Servicio/Usuario/Estado/Fecha queden alineados entre
+              // filas sin importar cuánto texto tenga cada una — antes cada
+              // fila repartía el espacio sobrante distinto según el largo
+              // del nombre del servicio (ver imagen-1 del pedido 2026-08-28).
               <div className="divide-y divide-slate-100">
                 {resumen.recientes.map((r) => (
                   <button
                     key={r.id}
                     onClick={() => navigate(`/nueva/${r.id}`)}
-                    className="flex w-full items-center justify-between py-1.5 text-left text-sm hover:bg-slate-50"
+                    className="grid w-full grid-cols-[1fr_160px_90px_90px] items-center gap-3 py-1.5 text-left text-sm hover:bg-slate-50"
                   >
-                    <span className="font-medium text-slate-700">
+                    <span className="truncate font-medium text-slate-700">
                       {r.servicio_res1732?.nombre ?? 'Servicio sin definir'}
                     </span>
-                    <span className="text-slate-500">{r.usuario?.nombre ?? '—'}</span>
+                    <span className="truncate text-slate-500">{r.usuario?.nombre ?? '—'}</span>
                     <span className={r.estado === 'borrador' ? 'text-amber-600' : 'text-emerald-600'}>
                       {r.estado === 'borrador' ? 'Borrador' : 'Finalizada'}
                     </span>
@@ -427,13 +497,16 @@ export default function Dashboard() {
             <h2 className="text-base font-semibold text-azul">Auto-evaluaciones por Habilitación</h2>
           </div>
 
-          <FilterBar>
-            <label className="text-sm">
+          {/* flex-nowrap + overflow-x-auto: los 5 filtros quedan siempre en
+              una sola línea (punto 9 del pedido 2026-08-28), con scroll
+              horizontal si la pantalla es angosta en vez de bajar de línea. */}
+          <FilterBar className="!flex-nowrap overflow-x-auto">
+            <label className="shrink-0 text-sm">
               <span className="mb-1 block font-medium text-slate-600">Empresa</span>
               <select
                 value={panelEmpresaFiltro}
                 onChange={(e) => setPanelEmpresaFiltro(e.target.value ? Number(e.target.value) : '')}
-                className="campo"
+                className="campo w-36"
               >
                 <option value="">Todas</option>
                 {empresas.map((e) => (
@@ -443,12 +516,12 @@ export default function Dashboard() {
                 ))}
               </select>
             </label>
-            <label className="text-sm">
+            <label className="shrink-0 text-sm">
               <span className="mb-1 block font-medium text-slate-600">Sede</span>
               <select
                 value={panelSedeFiltro}
                 onChange={(e) => setPanelSedeFiltro(e.target.value ? Number(e.target.value) : '')}
-                className="campo"
+                className="campo w-36"
               >
                 <option value="">Todas</option>
                 {sedes.map((s) => (
@@ -458,12 +531,12 @@ export default function Dashboard() {
                 ))}
               </select>
             </label>
-            <label className="text-sm">
+            <label className="shrink-0 text-sm">
               <span className="mb-1 block font-medium text-slate-600">Servicio</span>
               <select
                 value={panelServicioFiltro}
                 onChange={(e) => setPanelServicioFiltro(e.target.value ? Number(e.target.value) : '')}
-                className="campo"
+                className="campo w-40"
               >
                 <option value="">Todos</option>
                 {serviciosRes.map((s) => (
@@ -473,31 +546,31 @@ export default function Dashboard() {
                 ))}
               </select>
             </label>
-            <label className="text-sm">
+            <label className="shrink-0 text-sm">
               <span className="mb-1 block font-medium text-slate-600">Estado</span>
               <select
                 value={panelEstadoFiltro}
                 onChange={(e) => setPanelEstadoFiltro(e.target.value as typeof panelEstadoFiltro)}
-                className="campo"
+                className="campo w-32"
               >
                 <option value="todos">Todos</option>
                 <option value="borrador">Borrador</option>
                 <option value="finalizada">Finalizada</option>
               </select>
             </label>
-            <label className="text-sm">
+            <label className="shrink-0 text-sm">
               <span className="mb-1 block font-medium text-slate-600">Habilitada</span>
               <select
                 value={panelHabilitadaFiltro}
                 onChange={(e) => setPanelHabilitadaFiltro(e.target.value as typeof panelHabilitadaFiltro)}
-                className="campo"
+                className="campo w-28"
               >
                 <option value="todos">Todas</option>
                 <option value="si">Sí</option>
                 <option value="no">No</option>
               </select>
             </label>
-            <Boton variante="secundario" onClick={limpiarFiltrosPanel} disabled={!hayFiltrosPanel}>
+            <Boton variante="secundario" onClick={limpiarFiltrosPanel} disabled={!hayFiltrosPanel} className="shrink-0">
               Limpiar filtros
             </Boton>
           </FilterBar>
@@ -533,7 +606,11 @@ export default function Dashboard() {
               </Card>
 
               <Card className="mb-4">
-                <h3 className="mb-3 text-sm font-semibold text-slate-700">Detalle de auto-evaluaciones</h3>
+                <h3 className="mb-1 text-sm font-semibold text-slate-700">Detalle de auto-evaluaciones</h3>
+                <p className="mb-3 text-xs text-slate-400">
+                  % Cumple/No Cumple/No Aplica calculado sobre las preguntas ya respondidas de cada fila. Click en{' '}
+                  <ChevronRight size={11} className="inline" /> para ver el desglose por Estándar.
+                </p>
                 {autoevaluacionesPanel.length === 0 ? (
                   <p className="py-6 text-center text-sm text-slate-400">
                     No hay auto-evaluaciones para los filtros seleccionados.
@@ -543,6 +620,7 @@ export default function Dashboard() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-200 text-left text-slate-500">
+                          <th className="py-2 pr-2" />
                           <th className="py-2 pr-4">Fecha</th>
                           <th className="py-2 pr-4">Empresa</th>
                           <th className="py-2 pr-4">Sede</th>
@@ -550,26 +628,63 @@ export default function Dashboard() {
                           <th className="py-2 pr-4">Usuario</th>
                           <th className="py-2 pr-4">Estado</th>
                           <th className="py-2 pr-4">Habilitada</th>
+                          <th className="py-2 pr-4 text-right">Cumple</th>
+                          <th className="py-2 pr-4 text-right">No Cumple</th>
+                          <th className="py-2 pr-4 text-right">No Aplica</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {autoevaluacionesPanel.map((a) => (
-                          <tr key={a.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/nueva/${a.id}`)}>
-                            <td className="py-2 pr-4">{a.fecha}</td>
-                            <td className="py-2 pr-4">{a.empresa?.nombre ?? '—'}</td>
-                            <td className="py-2 pr-4">{a.sede?.nombre ?? '—'}</td>
-                            <td className="py-2 pr-4 font-medium text-slate-700">{a.servicio_res1732?.nombre ?? '—'}</td>
-                            <td className="py-2 pr-4">{a.usuario?.nombre ?? '—'}</td>
-                            <td className="py-2 pr-4">
-                              <Badge tono={a.estado === 'finalizada' ? 'exito' : 'advertencia'}>
-                                {a.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
-                              </Badge>
-                            </td>
-                            <td className="py-2 pr-4">
-                              {a.habilitada ? <Badge tono="info">Habilitada</Badge> : <span className="text-xs text-slate-400">—</span>}
-                            </td>
-                          </tr>
-                        ))}
+                        {autoevaluacionesPanel.map((a) => {
+                          const t = totalesPorFila[a.id] ?? conteoVacio()
+                          const expandida = filaExpandida === a.id
+                          return (
+                            <Fragment key={a.id}>
+                              <tr className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/nueva/${a.id}`)}>
+                                <td className="py-2 pr-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setFilaExpandida(expandida ? null : a.id)
+                                    }}
+                                    className="flex items-center justify-center text-slate-400 hover:text-azul"
+                                    title="Ver desglose por Estándar"
+                                  >
+                                    {expandida ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                  </button>
+                                </td>
+                                <td className="py-2 pr-4">{a.fecha}</td>
+                                <td className="py-2 pr-4">{a.empresa?.nombre ?? '—'}</td>
+                                <td className="py-2 pr-4">{a.sede?.nombre ?? '—'}</td>
+                                <td className="py-2 pr-4 font-medium text-slate-700">{a.servicio_res1732?.nombre ?? '—'}</td>
+                                <td className="py-2 pr-4">{a.usuario?.nombre ?? '—'}</td>
+                                <td className="py-2 pr-4">
+                                  <Badge tono={a.estado === 'finalizada' ? 'exito' : 'advertencia'}>
+                                    {a.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
+                                  </Badge>
+                                </td>
+                                <td className="py-2 pr-4">
+                                  {a.habilitada ? <Badge tono="info">Habilitada</Badge> : <span className="text-xs text-slate-400">—</span>}
+                                </td>
+                                <td className="py-2 pr-4 text-right text-emerald-600">
+                                  {t.cumple} ({porcentaje(t.cumple, t.total)}%)
+                                </td>
+                                <td className="py-2 pr-4 text-right text-red-600">
+                                  {t.no_cumple} ({porcentaje(t.no_cumple, t.total)}%)
+                                </td>
+                                <td className="py-2 pr-4 text-right text-slate-500">
+                                  {t.no_aplica} ({porcentaje(t.no_aplica, t.total)}%)
+                                </td>
+                              </tr>
+                              {expandida && (
+                                <tr className="bg-slate-50">
+                                  <td colSpan={11} className="px-4 py-3">
+                                    <DesgloseEstandar datos={desglosePorEstandar[a.id] ?? {}} />
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -691,6 +806,43 @@ export default function Dashboard() {
         </>
       )}
     </div>
+  )
+}
+
+// Mini tabla de desglose por Estándar de una auto-evaluación (punto 10) —
+// se muestra al expandir una fila del panel "Detalle de auto-evaluaciones".
+function DesgloseEstandar({ datos }: { datos: Record<string, ConteoRespuestas> }) {
+  const filas = Object.entries(datos).sort((a, b) => a[0].localeCompare(b[0]))
+  if (filas.length === 0) {
+    return <p className="text-xs text-slate-400">Todavía no hay preguntas respondidas en esta auto-evaluación.</p>
+  }
+  return (
+    <table className="w-full max-w-2xl text-xs">
+      <thead>
+        <tr className="text-left text-slate-500">
+          <th className="py-1 pr-4">Estándar</th>
+          <th className="py-1 pr-4 text-right">Cumple</th>
+          <th className="py-1 pr-4 text-right">No Cumple</th>
+          <th className="py-1 pr-4 text-right">No Aplica</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-200">
+        {filas.map(([estandar, c]) => (
+          <tr key={estandar}>
+            <td className="py-1 pr-4 font-medium text-slate-600">{estandar.replace('Estándar de ', '')}</td>
+            <td className="py-1 pr-4 text-right text-emerald-600">
+              {c.cumple} ({porcentaje(c.cumple, c.total)}%)
+            </td>
+            <td className="py-1 pr-4 text-right text-red-600">
+              {c.no_cumple} ({porcentaje(c.no_cumple, c.total)}%)
+            </td>
+            <td className="py-1 pr-4 text-right text-slate-500">
+              {c.no_aplica} ({porcentaje(c.no_aplica, c.total)}%)
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 

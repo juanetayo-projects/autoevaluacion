@@ -35,9 +35,9 @@ export function PageHeader({ titulo, acciones }: { titulo: string; acciones?: Re
 }
 
 // --- Barra de filtros reutilizable ---
-export function FilterBar({ children }: { children: ReactNode }) {
+export function FilterBar({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-md">
+    <div className={`mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-md ${className}`}>
       {children}
     </div>
   )

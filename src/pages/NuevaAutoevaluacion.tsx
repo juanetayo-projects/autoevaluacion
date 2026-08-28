@@ -8,7 +8,7 @@ import { Boton, Card, Modal, PageHeader, Spinner } from '../components/ui/ui'
 
 type Empresa = { id: number; nombre: string }
 type Sede = { id: number; nombre: string; empresa_id: number }
-type Ubicacion = { id: number; nombre: string }
+type Periodicidad = { id: number; nombre: string }
 type ServicioRes1732 = {
   id: number
   nombre: string
@@ -72,7 +72,14 @@ type Compromiso = {
   guardado: boolean
 }
 
-const TODAS = 'Todas'
+// Construye un filtro `columna.in.(...)` para PostgREST citando cada valor
+// entre comillas dobles — necesario porque valores reales de Complejidad
+// traen comas (ej. "Baja, Mediana y Alta"), que .in.() interpreta como
+// separador si no van citados.
+function filtroIn(columna: string, valores: string[]) {
+  const citados = valores.map((v) => `"${v.replace(/"/g, '\\"')}"`).join(',')
+  return `${columna}.in.(${citados})`
+}
 
 let universalIdCache: number | null = null
 async function obtenerServicioUniversalId() {
@@ -92,21 +99,22 @@ export default function NuevaAutoevaluacion() {
 
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [sedes, setSedes] = useState<Sede[]>([])
-  const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([])
+  const [periodicidades, setPeriodicidades] = useState<Periodicidad[]>([])
   // Servicio = columna G del Excel (39 valores reales, tabla servicios_res1732).
   const [serviciosRes, setServiciosRes] = useState<ServicioRes1732[]>([])
 
   const [empresaId, setEmpresaId] = useState<number | null>(null)
   const [sedeId, setSedeId] = useState<number | null>(null)
-  const [ubicacionId, setUbicacionId] = useState<number | null>(null)
+  const [periodicidadId, setPeriodicidadId] = useState<number | null>(null)
   const [lugar, setLugar] = useState('')
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10))
   const [servicioResId, setServicioResId] = useState<number | null>(null)
 
   const [modalidades, setModalidades] = useState<string[]>([])
   const [complejidades, setComplejidades] = useState<string[]>([])
-  const [modalidadFiltro, setModalidadFiltro] = useState(TODAS)
-  const [complejidadFiltro, setComplejidadFiltro] = useState(TODAS)
+  // Multi-selección (pedido 2026-08-28, punto 8): arrays vacíos = "Todas".
+  const [modalidadFiltro, setModalidadFiltro] = useState<string[]>([])
+  const [complejidadFiltro, setComplejidadFiltro] = useState<string[]>([])
 
   const [autoevaluacionId, setAutoevaluacionId] = useState<string | null>(id ?? null)
   const [estado, setEstado] = useState<'borrador' | 'finalizada'>('borrador')
@@ -137,10 +145,10 @@ export default function NuevaAutoevaluacion() {
   }, [id])
 
   async function cargarCatalogos() {
-    const [{ data: emp }, { data: sed }, { data: ubi }, { data: sr }] = await Promise.all([
+    const [{ data: emp }, { data: sed }, { data: per }, { data: sr }] = await Promise.all([
       supabase.from('empresas').select('*').order('nombre'),
       supabase.from('sedes').select('*').order('nombre'),
-      supabase.from('ubicaciones').select('id, nombre').order('nombre'),
+      supabase.from('periodicidades').select('id, nombre').order('nombre'),
       supabase
         .from('servicios_res1732')
         .select('id, nombre, descripcion, estructura, grupo_res1732_id, grupo_res1732:grupos_res1732(nombre)')
@@ -149,7 +157,7 @@ export default function NuevaAutoevaluacion() {
     ])
     setEmpresas((emp as Empresa[]) ?? [])
     setSedes((sed as Sede[]) ?? [])
-    setUbicaciones((ubi as Ubicacion[]) ?? [])
+    setPeriodicidades((per as Periodicidad[]) ?? [])
     setServiciosRes((sr as unknown as ServicioRes1732[]) ?? [])
     if (emp && emp.length > 0) setEmpresaId(emp[0].id)
   }
@@ -163,12 +171,12 @@ export default function NuevaAutoevaluacion() {
     setAutoevaluacionId(cab.id)
     setEmpresaId(cab.empresa_id)
     setSedeId(cab.sede_id)
-    setUbicacionId(cab.ubicacion_id)
+    setPeriodicidadId(cab.periodicidad_id)
     setLugar(cab.lugar ?? '')
     setFecha(cab.fecha)
     setServicioResId(cab.servicio_res1732_id)
-    setModalidadFiltro(cab.modalidad_filtro ?? TODAS)
-    setComplejidadFiltro(cab.complejidad_filtro ?? TODAS)
+    setModalidadFiltro(cab.modalidad_filtro ?? [])
+    setComplejidadFiltro(cab.complejidad_filtro ?? [])
     setEstado(cab.estado)
 
     const { data: resp } = await supabase
@@ -181,15 +189,15 @@ export default function NuevaAutoevaluacion() {
     }
     setRespuestas(mapa)
 
-    await buscarCriterios(cab.servicio_res1732_id, cab.modalidad_filtro ?? TODAS, cab.complejidad_filtro ?? TODAS)
+    await buscarCriterios(cab.servicio_res1732_id, cab.modalidad_filtro ?? [], cab.complejidad_filtro ?? [])
     setPaso('responder')
     setCargandoInicial(false)
   }
 
   async function alSeleccionarServicio(servicioId: number) {
     setServicioResId(servicioId)
-    setModalidadFiltro(TODAS)
-    setComplejidadFiltro(TODAS)
+    setModalidadFiltro([])
+    setComplejidadFiltro([])
 
     // Las opciones del filtro salen SOLO de los criterios propios del
     // servicio elegido (no de los universales "Todo los servicios") — los
@@ -205,19 +213,22 @@ export default function NuevaAutoevaluacion() {
     setComplejidades(comps.sort())
   }
 
-  async function buscarCriterios(servicioId: number, modalidad: string, complejidad: string) {
+  async function buscarCriterios(servicioId: number, modalidad: string[], complejidad: string[]) {
     setCargandoCriterios(true)
     const universalId = await obtenerServicioUniversalId()
     const columnas = 'id, numero, item, criterio, estandar, complejidad, modalidad, numeral_servicio'
 
-    // Propios del servicio: el filtro de Modalidad/Complejidad aplica, con
-    // "Todas"/"No aplica"/vacío como comodín (confirmado con el cliente).
+    // Propios del servicio: el filtro de Modalidad/Complejidad aplica (ahora
+    // multi-selección, punto 8), con "Todas"/"No aplica"/vacío como comodín
+    // (confirmado con el cliente). Los valores se citan entre comillas
+    // porque varios de Complejidad traen comas propias (ej. "Baja, Mediana
+    // y Alta"), que romperían el separador de in.(...) sin comillas.
     let propios = supabase.from('criterios_res1732').select(columnas).eq('servicio_res1732_id', servicioId)
-    if (modalidad !== TODAS) {
-      propios = propios.or(`modalidad.eq.${modalidad},modalidad.is.null`)
+    if (modalidad.length > 0) {
+      propios = propios.or(`${filtroIn('modalidad', modalidad)},modalidad.is.null`)
     }
-    if (complejidad !== TODAS) {
-      propios = propios.or(`complejidad.eq.${complejidad},complejidad.eq.Todas,complejidad.eq.No aplica`)
+    if (complejidad.length > 0) {
+      propios = propios.or(`${filtroIn('complejidad', complejidad)},complejidad.eq.Todas,complejidad.eq.No aplica`)
     }
 
     // Universales ("Todo los servicios"): se incluyen SIEMPRE completos,
@@ -241,7 +252,7 @@ export default function NuevaAutoevaluacion() {
   }
 
   async function iniciar() {
-    if (!empresaId || !sedeId || !ubicacionId || !servicioResId || !perfil) return
+    if (!empresaId || !sedeId || !periodicidadId || !servicioResId || !perfil) return
     if (autoevaluacionId) {
       await buscarCriterios(servicioResId, modalidadFiltro, complejidadFiltro)
       setPaso('responder')
@@ -249,14 +260,13 @@ export default function NuevaAutoevaluacion() {
     }
 
     // Antes de crear una nueva, verificar si ya existe una auto-evaluación
-    // con la misma Empresa+Sede+Ubicación+Servicio (borrador o finalizada).
+    // con la misma Empresa+Sede+Servicio (borrador o finalizada).
     setVerificandoDuplicado(true)
     const { data: existente } = await supabase
       .from('autoevaluaciones')
       .select('id, estado, fecha')
       .eq('empresa_id', empresaId)
       .eq('sede_id', sedeId)
-      .eq('ubicacion_id', ubicacionId)
       .eq('servicio_res1732_id', servicioResId)
       .order('creado_en', { ascending: false })
       .limit(1)
@@ -272,19 +282,19 @@ export default function NuevaAutoevaluacion() {
   }
 
   async function crearAutoevaluacion() {
-    if (!empresaId || !sedeId || !ubicacionId || !servicioResId || !perfil) return
+    if (!empresaId || !sedeId || !periodicidadId || !servicioResId || !perfil) return
     const { data, error } = await supabase
       .from('autoevaluaciones')
       .insert({
         empresa_id: empresaId,
         sede_id: sedeId,
-        ubicacion_id: ubicacionId,
+        periodicidad_id: periodicidadId,
         lugar,
         fecha,
         usuario_id: perfil.id,
         servicio_res1732_id: servicioResId,
-        modalidad_filtro: modalidadFiltro === TODAS ? null : modalidadFiltro,
-        complejidad_filtro: complejidadFiltro === TODAS ? null : complejidadFiltro,
+        modalidad_filtro: modalidadFiltro.length ? modalidadFiltro : null,
+        complejidad_filtro: complejidadFiltro.length ? complejidadFiltro : null,
         estado: 'borrador',
       })
       .select()
@@ -320,6 +330,42 @@ export default function NuevaAutoevaluacion() {
       ...prev,
       [criterioId]: { respuesta, observacion, respuestaId: data.id },
     }))
+
+    await replicarRespuestaEnEstandar(criterioId, respuesta)
+  }
+
+  // Al responder la PRIMERA pregunta de un Estándar, replica esa misma
+  // respuesta a las demás preguntas del mismo Estándar que sigan pendientes
+  // (punto 6 del pedido 2026-08-28) — el encuestador puede cambiar cualquiera
+  // de las autocompletadas después, así que solo toca las que aún no tienen
+  // respuesta propia (nunca sobrescribe una respuesta ya dada a mano).
+  async function replicarRespuestaEnEstandar(criterioId: number, respuesta: Respuesta) {
+    const criterio = criterios.find((c) => c.id === criterioId)
+    if (!criterio || !autoevaluacionId) return
+    const grupo = grupos.find((g) => g.clave === criterio.estandar)
+    if (!grupo || grupo.items[0]?.id !== criterioId) return
+
+    const pendientes = grupo.items.filter((c) => c.id !== criterioId && !respuestas[c.id]?.respuesta)
+    if (pendientes.length === 0) return
+
+    const filas = pendientes.map((c) => ({
+      autoevaluacion_id: autoevaluacionId,
+      criterio_id: c.id,
+      respuesta,
+      observacion: '',
+    }))
+    const { data, error } = await supabase
+      .from('autoevaluaciones_respuestas')
+      .upsert(filas, { onConflict: 'autoevaluacion_id,criterio_id' })
+      .select()
+    if (error || !data) return
+    setRespuestas((prev) => {
+      const siguiente = { ...prev }
+      for (const fila of data) {
+        siguiente[fila.criterio_id] = { respuesta: fila.respuesta, observacion: fila.observacion ?? '', respuestaId: fila.id }
+      }
+      return siguiente
+    })
   }
 
   async function guardarObservacion(criterioId: number, observacion: string) {
@@ -483,12 +529,12 @@ export default function NuevaAutoevaluacion() {
       await exportarAutoevaluacionExcel({
         empresa: empresas.find((e) => e.id === empresaId)?.nombre ?? '—',
         sede: sedes.find((s) => s.id === sedeId)?.nombre ?? '—',
-        ubicacion: ubicaciones.find((u) => u.id === ubicacionId)?.nombre ?? '—',
+        periodicidad: periodicidades.find((p) => p.id === periodicidadId)?.nombre ?? '—',
         lugar,
         fecha,
         servicio: servicioSeleccionado?.nombre ?? '—',
-        modalidad: modalidadFiltro,
-        complejidad: complejidadFiltro,
+        modalidad: modalidadFiltro.length ? modalidadFiltro.join(', ') : 'Todas',
+        complejidad: complejidadFiltro.length ? complejidadFiltro.join(', ') : 'Todas',
         estado,
         pctCumple: avance.pctCumple,
         pctNoCumple: avance.pctNoCumple,
@@ -555,16 +601,16 @@ export default function NuevaAutoevaluacion() {
                 ))}
               </select>
             </Campo>
-            <Campo label="Ubicación">
+            <Campo label="Periodicidad">
               <select
-                value={ubicacionId ?? ''}
-                onChange={(e) => setUbicacionId(Number(e.target.value))}
+                value={periodicidadId ?? ''}
+                onChange={(e) => setPeriodicidadId(Number(e.target.value))}
                 className="campo py-1.5"
               >
                 <option value="">Selecciona…</option>
-                {ubicaciones.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.nombre}
+                {periodicidades.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
                   </option>
                 ))}
               </select>
@@ -572,7 +618,7 @@ export default function NuevaAutoevaluacion() {
             <Campo label="Lugar">
               <input value={lugar} onChange={(e) => setLugar(e.target.value)} className="campo py-1.5" />
             </Campo>
-            <Campo label="Fecha">
+            <Campo label="Fecha inicio">
               <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="campo py-1.5" />
             </Campo>
             <Campo label="Servicio" className="sm:col-span-2">
@@ -596,29 +642,11 @@ export default function NuevaAutoevaluacion() {
                 </div>
               </Campo>
             )}
-            <Campo label="Modalidad">
-              <select value={modalidadFiltro} onChange={(e) => setModalidadFiltro(e.target.value)} className="campo py-1.5">
-                <option value={TODAS}>Todas</option>
-                {modalidades.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+            <Campo label="Modalidad" className="sm:col-span-2">
+              <SelectorMultiple opciones={modalidades} seleccionados={modalidadFiltro} onCambiar={setModalidadFiltro} />
             </Campo>
-            <Campo label="Complejidad">
-              <select
-                value={complejidadFiltro}
-                onChange={(e) => setComplejidadFiltro(e.target.value)}
-                className="campo py-1.5"
-              >
-                <option value={TODAS}>Todas</option>
-                {complejidades.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+            <Campo label="Complejidad" className="sm:col-span-2">
+              <SelectorMultiple opciones={complejidades} seleccionados={complejidadFiltro} onCambiar={setComplejidadFiltro} />
             </Campo>
           </div>
           <div className="mt-4 flex gap-2">
@@ -627,7 +655,7 @@ export default function NuevaAutoevaluacion() {
             </Boton>
             <Boton
               onClick={iniciar}
-              disabled={!empresaId || !sedeId || !ubicacionId || !servicioResId || verificandoDuplicado}
+              disabled={!empresaId || !sedeId || !periodicidadId || !servicioResId || verificandoDuplicado}
               className="flex-1"
             >
               {verificandoDuplicado ? 'Verificando…' : 'Continuar'}
@@ -643,7 +671,7 @@ export default function NuevaAutoevaluacion() {
           {duplicado?.estado === 'borrador' ? (
             <>
               <p className="mb-4 text-sm text-slate-600">
-                Ya hay un borrador (del {duplicado.fecha}) para este mismo Servicio, Sede, Ubicación y Empresa. ¿Deseas
+                Ya hay un borrador (del {duplicado.fecha}) para este mismo Servicio, Sede y Empresa. ¿Deseas
                 continuarlo, o eliminarlo y empezar uno nuevo?
               </p>
               <div className="flex flex-col gap-2">
@@ -661,7 +689,7 @@ export default function NuevaAutoevaluacion() {
           ) : (
             <>
               <p className="mb-4 text-sm text-slate-600">
-                Ya existe una auto-evaluación finalizada (del {duplicado?.fecha}) para este mismo Servicio, Sede, Ubicación y
+                Ya existe una auto-evaluación finalizada (del {duplicado?.fecha}) para este mismo Servicio, Sede y
                 Empresa.
               </p>
               <div className="flex flex-col gap-2">
@@ -827,18 +855,22 @@ export default function NuevaAutoevaluacion() {
             </span>
           )}
           {/* Filtros seleccionados en líneas independientes, agrupados por color:
-              dónde se hizo (Empresa/Sede/Ubicación/Lugar) y cuándo/criterios
-              (Fecha/Modalidad/Complejidad). Sin max-h/scroll: son siempre las
-              mismas 7 filas cortas, nunca deberían necesitar recortarse (a
-              diferencia de la Descripción, de longitud variable). */}
+              dónde se hizo (Empresa/Sede/Lugar) y cuándo/criterios (Fecha
+              inicio/Periodicidad/Modalidad/Complejidad). Sin max-h/scroll: son
+              siempre las mismas 7 filas cortas, nunca deberían necesitar
+              recortarse (a diferencia de la Descripción, de longitud variable). */}
           <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 text-[11px]">
             <FilaEtiqueta etiqueta="Empresa" valor={empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} tono="bg-sky-50" />
             <FilaEtiqueta etiqueta="Sede" valor={sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} tono="bg-sky-50/60" />
-            <FilaEtiqueta etiqueta="Ubicación" valor={ubicaciones.find((u) => u.id === ubicacionId)?.nombre ?? '—'} tono="bg-sky-50" />
-            <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50/60" />
-            <FilaEtiqueta etiqueta="Fecha" valor={fecha} tono="bg-amber-50" />
-            <FilaEtiqueta etiqueta="Modalidad" valor={modalidadFiltro} tono="bg-amber-50/60" />
-            <FilaEtiqueta etiqueta="Complejidad" valor={complejidadFiltro} tono="bg-amber-50" />
+            <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50" />
+            <FilaEtiqueta etiqueta="Fecha inicio" valor={fecha} tono="bg-amber-50" />
+            <FilaEtiqueta
+              etiqueta="Periodicidad"
+              valor={periodicidades.find((p) => p.id === periodicidadId)?.nombre ?? '—'}
+              tono="bg-amber-50/60"
+            />
+            <FilaEtiqueta etiqueta="Modalidad" valor={modalidadFiltro.length ? modalidadFiltro.join(', ') : 'Todas'} tono="bg-amber-50" />
+            <FilaEtiqueta etiqueta="Complejidad" valor={complejidadFiltro.length ? complejidadFiltro.join(', ') : 'Todas'} tono="bg-amber-50/60" />
           </div>
         </div>
 
@@ -1212,5 +1244,44 @@ function Campo({ label, children, className = '' }: { label: string; children: R
       <span className="mb-1 block font-medium text-slate-600">{label}</span>
       {children}
     </label>
+  )
+}
+
+// Selector de opción múltiple por chips (punto 8 del pedido 2026-08-28) —
+// reemplaza el <select> simple de Modalidad/Complejidad. Sin selección =
+// "Todas" (mismo significado que antes tenía el valor TODAS).
+function SelectorMultiple({
+  opciones,
+  seleccionados,
+  onCambiar,
+}: {
+  opciones: string[]
+  seleccionados: string[]
+  onCambiar: (valores: string[]) => void
+}) {
+  function alternar(valor: string) {
+    onCambiar(seleccionados.includes(valor) ? seleccionados.filter((v) => v !== valor) : [...seleccionados, valor])
+  }
+  return (
+    <div className="campo flex min-h-[2.25rem] flex-wrap items-center gap-1.5 py-1.5">
+      {opciones.length === 0 ? (
+        <span className="text-slate-400">Todas</span>
+      ) : (
+        opciones.map((o) => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => alternar(o)}
+            className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+              seleccionados.includes(o)
+                ? 'border-azul bg-azul text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {o}
+          </button>
+        ))
+      )}
+    </div>
   )
 }
