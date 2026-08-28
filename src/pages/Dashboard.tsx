@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardCheck, ClipboardX, CircleSlash, FileClock } from 'lucide-react'
+import { ClipboardCheck, ClipboardX, CircleSlash, FileClock, ShieldCheck } from 'lucide-react'
 import {
   ResponsiveContainer,
   BarChart,
@@ -20,7 +20,7 @@ import {
   Legend,
 } from 'recharts'
 import { supabase } from '../lib/supabase'
-import { Boton, Card, MetricCard, PageHeader, Spinner } from '../components/ui/ui'
+import { Badge, Boton, Card, FilterBar, MetricCard, PageHeader, Spinner } from '../components/ui/ui'
 
 type ResumenAutoevaluacion = {
   id: string
@@ -35,13 +35,33 @@ type Resumen = {
   totalNoCumple: number
   totalNoAplica: number
   borradores: number
+  habilitadas: number
   recientes: ResumenAutoevaluacion[]
 }
 
 type Sede = { id: number; nombre: string }
+type Empresa = { id: number; nombre: string }
+type ServicioLite = { id: number; nombre: string }
 type GrupoLite = { id: number; nombre: string }
 type CriterioLite = { estandar: string; complejidad: string; grupo_res1732_id: number }
 type ServicioPorGrupo = { grupo: string; cantidad: number; color: string }
+
+// Fila del panel filtrable de auto-evaluaciones (sección 3 del pedido
+// 2026-08-28) — alimenta a la vez la gráfica y la tabla de datos, para que
+// ambas respondan siempre a los mismos filtros.
+type AutoevaluacionFila = {
+  id: string
+  fecha: string
+  estado: 'borrador' | 'finalizada'
+  habilitada: boolean
+  empresa_id: number
+  sede_id: number
+  servicio_res1732_id: number
+  empresa: { nombre: string } | null
+  sede: { nombre: string } | null
+  servicio_res1732: { nombre: string } | null
+  usuario: { nombre: string } | null
+}
 
 // Mismos colores que el resto de la app (NuevaAutoevaluacion.tsx,
 // exportarCatalogo.ts) — mantener sincronizados si se agrega un Estándar.
@@ -85,12 +105,36 @@ export default function Dashboard() {
   const [grupos, setGrupos] = useState<GrupoLite[]>([])
   const [grupoFiltroChart, setGrupoFiltroChart] = useState<number | ''>('')
 
+  // Panel filtrable de auto-evaluaciones (sección 3 del pedido 2026-08-28):
+  // un único juego de filtros alimenta a la vez la gráfica y la tabla de
+  // datos de abajo.
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [serviciosRes, setServiciosRes] = useState<ServicioLite[]>([])
+  const [panelEmpresaFiltro, setPanelEmpresaFiltro] = useState<number | ''>('')
+  const [panelSedeFiltro, setPanelSedeFiltro] = useState<number | ''>('')
+  const [panelServicioFiltro, setPanelServicioFiltro] = useState<number | ''>('')
+  const [panelEstadoFiltro, setPanelEstadoFiltro] = useState<'todos' | 'borrador' | 'finalizada'>('todos')
+  const [panelHabilitadaFiltro, setPanelHabilitadaFiltro] = useState<'todos' | 'si' | 'no'>('todos')
+  const [autoevaluacionesPanel, setAutoevaluacionesPanel] = useState<AutoevaluacionFila[]>([])
+  const [cargandoPanel, setCargandoPanel] = useState(true)
+
   useEffect(() => {
     supabase
       .from('sedes')
       .select('id, nombre')
       .order('nombre')
       .then(({ data }) => setSedes((data as Sede[]) ?? []))
+    supabase
+      .from('empresas')
+      .select('id, nombre')
+      .order('nombre')
+      .then(({ data }) => setEmpresas((data as Empresa[]) ?? []))
+    supabase
+      .from('servicios_res1732')
+      .select('id, nombre')
+      .neq('numeral', '5')
+      .order('nombre')
+      .then(({ data }) => setServiciosRes((data as ServicioLite[]) ?? []))
     cargarGraficas()
   }, [])
 
@@ -98,6 +142,53 @@ export default function Dashboard() {
     cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sedeFiltro])
+
+  useEffect(() => {
+    cargarPanel()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelEmpresaFiltro, panelSedeFiltro, panelServicioFiltro, panelEstadoFiltro, panelHabilitadaFiltro])
+
+  async function cargarPanel() {
+    setCargandoPanel(true)
+    let q = supabase
+      .from('autoevaluaciones')
+      .select(
+        'id, fecha, estado, habilitada, empresa_id, sede_id, servicio_res1732_id, empresa:empresas(nombre), sede:sedes(nombre), servicio_res1732:servicios_res1732(nombre), usuario:profiles(nombre)',
+      )
+      .order('creado_en', { ascending: false })
+    if (panelEmpresaFiltro) q = q.eq('empresa_id', panelEmpresaFiltro)
+    if (panelSedeFiltro) q = q.eq('sede_id', panelSedeFiltro)
+    if (panelServicioFiltro) q = q.eq('servicio_res1732_id', panelServicioFiltro)
+    if (panelEstadoFiltro !== 'todos') q = q.eq('estado', panelEstadoFiltro)
+    if (panelHabilitadaFiltro !== 'todos') q = q.eq('habilitada', panelHabilitadaFiltro === 'si')
+    const { data } = await q
+    setAutoevaluacionesPanel((data as unknown as AutoevaluacionFila[]) ?? [])
+    setCargandoPanel(false)
+  }
+
+  const limpiarFiltrosPanel = () => {
+    setPanelEmpresaFiltro('')
+    setPanelSedeFiltro('')
+    setPanelServicioFiltro('')
+    setPanelEstadoFiltro('todos')
+    setPanelHabilitadaFiltro('todos')
+  }
+  const hayFiltrosPanel =
+    !!panelEmpresaFiltro || !!panelSedeFiltro || !!panelServicioFiltro || panelEstadoFiltro !== 'todos' || panelHabilitadaFiltro !== 'todos'
+
+  // Gráfica: cuenta habilitadas/no habilitadas por Sede, sobre el mismo
+  // conjunto ya filtrado que alimenta la tabla de abajo.
+  const habilitadasPorSede = useMemo(() => {
+    const mapa = new Map<string, { sede: string; habilitadas: number; noHabilitadas: number }>()
+    for (const a of autoevaluacionesPanel) {
+      const nombre = a.sede?.nombre ?? 'Sin sede'
+      if (!mapa.has(nombre)) mapa.set(nombre, { sede: nombre, habilitadas: 0, noHabilitadas: 0 })
+      const fila = mapa.get(nombre)!
+      if (a.habilitada) fila.habilitadas += 1
+      else fila.noHabilitadas += 1
+    }
+    return Array.from(mapa.values()).sort((a, b) => b.habilitadas + b.noHabilitadas - (a.habilitadas + a.noHabilitadas))
+  }, [autoevaluacionesPanel])
 
   // El proyecto de Supabase tiene un tope de 1.000 filas por consulta
   // (db-max-rows), que un Range header del cliente no puede superar — hay
@@ -164,6 +255,12 @@ export default function Dashboard() {
         .eq('estado', 'borrador')
       if (sedeFiltro) borradoresQuery = borradoresQuery.eq('sede_id', sedeFiltro)
 
+      let habilitadasQuery = supabase
+        .from('autoevaluaciones')
+        .select('*', { count: 'exact', head: true })
+        .eq('habilitada', true)
+      if (sedeFiltro) habilitadasQuery = habilitadasQuery.eq('sede_id', sedeFiltro)
+
       let recientesQuery = supabase
         .from('autoevaluaciones')
         .select('id, fecha, estado, servicio_res1732:servicios_res1732(nombre), usuario:profiles(nombre)')
@@ -171,14 +268,28 @@ export default function Dashboard() {
         .limit(6)
       if (sedeFiltro) recientesQuery = recientesQuery.eq('sede_id', sedeFiltro)
 
-      const [{ count: cumple }, { count: noCumple }, { count: noAplica }, { count: borradores }, { data: recientes }] =
-        await Promise.all([conteoRespuesta('cumple'), conteoRespuesta('no_cumple'), conteoRespuesta('no_aplica'), borradoresQuery, recientesQuery])
+      const [
+        { count: cumple },
+        { count: noCumple },
+        { count: noAplica },
+        { count: borradores },
+        { count: habilitadas },
+        { data: recientes },
+      ] = await Promise.all([
+        conteoRespuesta('cumple'),
+        conteoRespuesta('no_cumple'),
+        conteoRespuesta('no_aplica'),
+        borradoresQuery,
+        habilitadasQuery,
+        recientesQuery,
+      ])
 
       setResumen({
         totalCumple: cumple ?? 0,
         totalNoCumple: noCumple ?? 0,
         totalNoAplica: noAplica ?? 0,
         borradores: borradores ?? 0,
+        habilitadas: habilitadas ?? 0,
         recientes: (recientes ?? []) as unknown as ResumenAutoevaluacion[],
       })
     } catch {
@@ -248,7 +359,7 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <MetricCard
               titulo="Cumple"
               valor={`${pct(resumen?.totalCumple ?? 0)}%`}
@@ -272,6 +383,12 @@ export default function Dashboard() {
               valor={resumen?.borradores ?? 0}
               icono={<FileClock size={18} />}
               sub="Pendientes de continuar"
+            />
+            <MetricCard
+              titulo="Habilitadas"
+              valor={resumen?.habilitadas ?? 0}
+              icono={<ShieldCheck size={18} />}
+              sub="Auto-evaluaciones aprobadas"
             />
           </div>
 
@@ -302,6 +419,164 @@ export default function Dashboard() {
               </div>
             )}
           </Card>
+
+          {/* Panel filtrable de auto-evaluaciones habilitadas (sección 3 del
+              pedido 2026-08-28) — un único juego de filtros alimenta a la vez
+              la gráfica y la tabla de datos de abajo. */}
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-azul">Auto-evaluaciones por Habilitación</h2>
+          </div>
+
+          <FilterBar>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-slate-600">Empresa</span>
+              <select
+                value={panelEmpresaFiltro}
+                onChange={(e) => setPanelEmpresaFiltro(e.target.value ? Number(e.target.value) : '')}
+                className="campo"
+              >
+                <option value="">Todas</option>
+                {empresas.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-slate-600">Sede</span>
+              <select
+                value={panelSedeFiltro}
+                onChange={(e) => setPanelSedeFiltro(e.target.value ? Number(e.target.value) : '')}
+                className="campo"
+              >
+                <option value="">Todas</option>
+                {sedes.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-slate-600">Servicio</span>
+              <select
+                value={panelServicioFiltro}
+                onChange={(e) => setPanelServicioFiltro(e.target.value ? Number(e.target.value) : '')}
+                className="campo"
+              >
+                <option value="">Todos</option>
+                {serviciosRes.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-slate-600">Estado</span>
+              <select
+                value={panelEstadoFiltro}
+                onChange={(e) => setPanelEstadoFiltro(e.target.value as typeof panelEstadoFiltro)}
+                className="campo"
+              >
+                <option value="todos">Todos</option>
+                <option value="borrador">Borrador</option>
+                <option value="finalizada">Finalizada</option>
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-slate-600">Habilitada</span>
+              <select
+                value={panelHabilitadaFiltro}
+                onChange={(e) => setPanelHabilitadaFiltro(e.target.value as typeof panelHabilitadaFiltro)}
+                className="campo"
+              >
+                <option value="todos">Todas</option>
+                <option value="si">Sí</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+            <Boton variante="secundario" onClick={limpiarFiltrosPanel} disabled={!hayFiltrosPanel}>
+              Limpiar filtros
+            </Boton>
+          </FilterBar>
+
+          {cargandoPanel ? (
+            <div className="flex justify-center py-16">
+              <Spinner />
+            </div>
+          ) : (
+            <>
+              <Card className="mb-4 p-4">
+                <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Habilitadas por Sede</h3>
+                <p className="mb-3 text-xs text-slate-400">
+                  {autoevaluacionesPanel.length.toLocaleString()} auto-evaluaciones con los filtros activos
+                </p>
+                {habilitadasPorSede.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-slate-400">
+                    No hay auto-evaluaciones para los filtros seleccionados.
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={habilitadasPorSede} margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="sede" tick={{ fontSize: 11, fill: '#334155' }} axisLine={false} tickLine={false} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <Tooltip content={<TooltipGrafica />} cursor={{ fill: '#f1f5f9' }} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="habilitadas" name="Habilitadas" fill="#0284c7" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                      <Bar dataKey="noHabilitadas" name="No habilitadas" fill="#cbd5e1" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </Card>
+
+              <Card className="mb-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-700">Detalle de auto-evaluaciones</h3>
+                {autoevaluacionesPanel.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-slate-400">
+                    No hay auto-evaluaciones para los filtros seleccionados.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left text-slate-500">
+                          <th className="py-2 pr-4">Fecha</th>
+                          <th className="py-2 pr-4">Empresa</th>
+                          <th className="py-2 pr-4">Sede</th>
+                          <th className="py-2 pr-4">Servicio</th>
+                          <th className="py-2 pr-4">Usuario</th>
+                          <th className="py-2 pr-4">Estado</th>
+                          <th className="py-2 pr-4">Habilitada</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {autoevaluacionesPanel.map((a) => (
+                          <tr key={a.id} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/nueva/${a.id}`)}>
+                            <td className="py-2 pr-4">{a.fecha}</td>
+                            <td className="py-2 pr-4">{a.empresa?.nombre ?? '—'}</td>
+                            <td className="py-2 pr-4">{a.sede?.nombre ?? '—'}</td>
+                            <td className="py-2 pr-4 font-medium text-slate-700">{a.servicio_res1732?.nombre ?? '—'}</td>
+                            <td className="py-2 pr-4">{a.usuario?.nombre ?? '—'}</td>
+                            <td className="py-2 pr-4">
+                              <Badge tono={a.estado === 'finalizada' ? 'exito' : 'advertencia'}>
+                                {a.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
+                              </Badge>
+                            </td>
+                            <td className="py-2 pr-4">
+                              {a.habilitada ? <Badge tono="info">Habilitada</Badge> : <span className="text-xs text-slate-400">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </>
+          )}
 
           {/* Gráficas del catálogo Res.1732 — independientes de la Sede (son
               metadatos del catálogo, no datos de auto-evaluaciones). El

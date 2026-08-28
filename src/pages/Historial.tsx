@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Trash2 } from 'lucide-react'
+import { ShieldCheck, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Badge, Boton, Card, FilterBar, Modal, PageHeader, Spinner } from '../components/ui/ui'
@@ -9,6 +9,7 @@ type Fila = {
   id: string
   fecha: string
   estado: 'borrador' | 'finalizada'
+  habilitada: boolean
   lugar: string | null
   servicio_res1732: { nombre: string } | null
   usuario: { nombre: string } | null
@@ -24,8 +25,14 @@ export default function Historial() {
   const [busqueda, setBusqueda] = useState('')
   const [eliminando, setEliminando] = useState<Fila | null>(null)
   const [borrando, setBorrando] = useState(false)
+  const [habilitando, setHabilitando] = useState<Fila | null>(null)
+  const [guardandoHabilitar, setGuardandoHabilitar] = useState(false)
 
   const esAdmin = perfil?.role === 'admin'
+  // Habilitar es una aprobación de calidad/cumplimiento, igual de sensible
+  // que Eliminar — mismo criterio de rol (admin/coordinador) que el resto de
+  // acciones administrativas de esta pantalla.
+  const puedeHabilitar = perfil?.role === 'admin' || perfil?.role === 'coordinador'
 
   useEffect(() => {
     cargar()
@@ -36,7 +43,7 @@ export default function Historial() {
     const { data } = await supabase
       .from('autoevaluaciones')
       .select(
-        'id, fecha, estado, lugar, servicio_res1732:servicios_res1732(nombre), usuario:profiles(nombre), sede:sedes(nombre)',
+        'id, fecha, estado, habilitada, lugar, servicio_res1732:servicios_res1732(nombre), usuario:profiles(nombre), sede:sedes(nombre)',
       )
       .order('creado_en', { ascending: false })
     setFilas((data as unknown as Fila[]) ?? [])
@@ -49,6 +56,24 @@ export default function Historial() {
     await supabase.from('autoevaluaciones').delete().eq('id', eliminando.id)
     setBorrando(false)
     setEliminando(null)
+    cargar()
+  }
+
+  // Solo se puede habilitar una auto-evaluación "finalizada" — ese estado ya
+  // garantiza que no quedó ningún criterio pendiente (Finalizar la bloquea
+  // mientras avance.pendientes > 0). Reforzado también en BD (constraint
+  // autoevaluaciones_habilitada_requiere_finalizada).
+  async function habilitar() {
+    if (!habilitando) return
+    setGuardandoHabilitar(true)
+    await supabase.from('autoevaluaciones').update({ habilitada: true }).eq('id', habilitando.id)
+    setGuardandoHabilitar(false)
+    setHabilitando(null)
+    cargar()
+  }
+
+  async function deshabilitar(fila: Fila) {
+    await supabase.from('autoevaluaciones').update({ habilitada: false }).eq('id', fila.id)
     cargar()
   }
 
@@ -98,6 +123,7 @@ export default function Historial() {
                   <th className="py-2 pr-4">Sede</th>
                   <th className="py-2 pr-4">Usuario</th>
                   <th className="py-2 pr-4">Estado</th>
+                  <th className="py-2 pr-4">Habilitada</th>
                   <th className="py-2 pr-4" />
                 </tr>
               </thead>
@@ -124,6 +150,13 @@ export default function Historial() {
                         {f.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
                       </Badge>
                     </td>
+                    <td className="py-2 pr-4">
+                      {f.habilitada ? (
+                        <Badge tono="info">Habilitada</Badge>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="py-2 pr-4 text-right">
                       <div className="flex justify-end gap-3">
                         <button
@@ -132,6 +165,28 @@ export default function Historial() {
                         >
                           {f.estado === 'finalizada' ? 'Ver' : 'Continuar'}
                         </button>
+                        {puedeHabilitar &&
+                          (f.habilitada ? (
+                            <button
+                              onClick={() => deshabilitar(f)}
+                              className="text-xs font-medium text-slate-500 hover:underline"
+                            >
+                              Deshabilitar
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setHabilitando(f)}
+                              disabled={f.estado !== 'finalizada'}
+                              title={
+                                f.estado !== 'finalizada'
+                                  ? 'Debes finalizar la auto-evaluación (todas las preguntas diligenciadas) antes de habilitarla'
+                                  : 'Habilitar'
+                              }
+                              className="text-sky-600 hover:text-sky-800 disabled:cursor-not-allowed disabled:text-slate-300"
+                            >
+                              <ShieldCheck size={15} />
+                            </button>
+                          ))}
                         {esAdmin && (
                           <button
                             onClick={() => setEliminando(f)}
@@ -150,6 +205,22 @@ export default function Historial() {
           </div>
         )}
       </Card>
+
+      <Modal open={!!habilitando} onClose={() => setHabilitando(null)} titulo="Habilitar auto-evaluación">
+        <p className="mb-4 text-sm text-slate-600">
+          ¿Marcar como <strong>habilitada</strong> la auto-evaluación de{' '}
+          <strong>{habilitando?.servicio_res1732?.nombre}</strong> del {habilitando?.fecha}? Todas sus preguntas ya
+          están diligenciadas (auto-evaluación finalizada).
+        </p>
+        <div className="flex gap-2">
+          <Boton variante="secundario" onClick={() => setHabilitando(null)} className="flex-1">
+            Cancelar
+          </Boton>
+          <Boton onClick={habilitar} disabled={guardandoHabilitar} className="flex-1">
+            {guardandoHabilitar ? 'Guardando…' : 'Habilitar'}
+          </Boton>
+        </div>
+      </Modal>
 
       <Modal open={!!eliminando} onClose={() => setEliminando(null)} titulo="Eliminar auto-evaluación">
         <p className="mb-4 text-sm text-slate-600">

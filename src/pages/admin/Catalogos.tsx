@@ -5,7 +5,7 @@ import { exportarCriteriosExcel, exportarServiciosExcel } from '../../lib/export
 
 const LOGO_URL = `${import.meta.env.BASE_URL}images/logo_cacsb2.png`
 
-type Tab = 'servicios' | 'criterios'
+type Tab = 'servicios' | 'criterios' | 'empresas' | 'sedes' | 'ubicaciones'
 
 export default function Catalogos() {
   const [tab, setTab] = useState<Tab>('servicios')
@@ -14,17 +14,30 @@ export default function Catalogos() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
         <h1 className="text-lg font-semibold text-azul">Catálogos</h1>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           <BotonTab activo={tab === 'servicios'} onClick={() => setTab('servicios')}>
             Servicios (columna G)
           </BotonTab>
           <BotonTab activo={tab === 'criterios'} onClick={() => setTab('criterios')}>
             Criterios Res.1732
           </BotonTab>
+          <BotonTab activo={tab === 'empresas'} onClick={() => setTab('empresas')}>
+            Empresas
+          </BotonTab>
+          <BotonTab activo={tab === 'sedes'} onClick={() => setTab('sedes')}>
+            Sedes
+          </BotonTab>
+          <BotonTab activo={tab === 'ubicaciones'} onClick={() => setTab('ubicaciones')}>
+            Ubicación
+          </BotonTab>
         </div>
       </div>
 
-      {tab === 'servicios' ? <ServiciosRes1732Tab /> : <CriteriosTab />}
+      {tab === 'servicios' && <ServiciosRes1732Tab />}
+      {tab === 'criterios' && <CriteriosTab />}
+      {tab === 'empresas' && <EmpresasTab />}
+      {tab === 'sedes' && <SedesTab />}
+      {tab === 'ubicaciones' && <UbicacionesTab />}
     </div>
   )
 }
@@ -917,6 +930,439 @@ function ModalEditarCriterio({
             Cancelar
           </Boton>
           <Boton onClick={guardar} disabled={guardando} className="flex-1">
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </Boton>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ============================================================
+// Empresas / Sedes / Ubicación — catálogos simples (tabla independiente
+// cada uno, sección 1 del pedido 2026-08-28). Empresas y Ubicación son
+// listas planas {id, nombre}; Sedes agrega el desplegable de Empresa.
+// ============================================================
+
+type RegistroSimple = { id: number; nombre: string }
+
+// Mensaje de error de Postgres cuando el registro está referenciado por FK
+// (ej. una autoevaluación ya usa esa Sede) — se traduce a un texto legible
+// en vez de mostrar el detalle crudo de Postgres.
+function mensajeErrorEliminar(error: { code?: string; message?: string } | null, etiqueta: string) {
+  if (error?.code === '23503') {
+    return `No se puede eliminar: ${etiqueta} está en uso por una o más auto-evaluaciones.`
+  }
+  return error?.message ?? 'No se pudo eliminar el registro.'
+}
+
+function EmpresasTab() {
+  return (
+    <CatalogoSimpleTab
+      tabla="empresas"
+      etiquetaSingular="empresa"
+      etiquetaPlural="Empresas"
+      descripcion="Empresas del grupo — hoy solo CACSB. Catálogo independiente usado por la cabecera de Nueva auto-evaluación."
+    />
+  )
+}
+
+function UbicacionesTab() {
+  return (
+    <CatalogoSimpleTab
+      tabla="ubicaciones"
+      etiquetaSingular="ubicación"
+      etiquetaPlural="Ubicación"
+      descripcion="Áreas/servicios físicos de la clínica (pisos, laboratorio, imágenes diagnósticas, hospitalización, etc.). Catálogo independiente, sin relación directa a Sede."
+    />
+  )
+}
+
+// Componente genérico reusado por Empresas y Ubicación: ambas son tablas
+// {id, nombre} con el mismo patrón de listar/crear/editar/eliminar.
+function CatalogoSimpleTab({
+  tabla,
+  etiquetaSingular,
+  etiquetaPlural,
+  descripcion,
+}: {
+  tabla: 'empresas' | 'ubicaciones'
+  etiquetaSingular: string
+  etiquetaPlural: string
+  descripcion: string
+}) {
+  const [registros, setRegistros] = useState<RegistroSimple[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [busqueda, setBusqueda] = useState('')
+  const [editando, setEditando] = useState<RegistroSimple | 'nuevo' | null>(null)
+  const [eliminando, setEliminando] = useState<RegistroSimple | null>(null)
+  const [errorEliminar, setErrorEliminar] = useState('')
+
+  useEffect(() => {
+    cargar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabla])
+
+  async function cargar() {
+    setCargando(true)
+    const { data } = await supabase.from(tabla).select('id, nombre').order('nombre')
+    setRegistros((data as RegistroSimple[]) ?? [])
+    setCargando(false)
+  }
+
+  async function eliminar() {
+    if (!eliminando) return
+    setErrorEliminar('')
+    const { error } = await supabase.from(tabla).delete().eq('id', eliminando.id)
+    if (error) {
+      setErrorEliminar(mensajeErrorEliminar(error, eliminando.nombre))
+      return
+    }
+    setEliminando(null)
+    cargar()
+  }
+
+  const filtrados = registros.filter((r) => !busqueda || r.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+
+  return (
+    <Card>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-slate-500">{descripcion}</p>
+        <Boton onClick={() => setEditando('nuevo')}>Nueva {etiquetaSingular}</Boton>
+      </div>
+
+      <FilterBar>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Buscar</span>
+          <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
+        </label>
+      </FilterBar>
+
+      {cargando ? (
+        <div className="flex justify-center py-16">
+          <Spinner />
+        </div>
+      ) : filtrados.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-400">No hay registros para mostrar.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-slate-500">
+                <th className="py-2 pr-4">{etiquetaPlural}</th>
+                <th className="py-2 pr-4" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtrados.map((r) => (
+                <tr key={r.id}>
+                  <td className="py-2 pr-4 font-medium text-slate-700">{r.nombre}</td>
+                  <td className="flex gap-3 py-2 pr-4 text-right text-xs">
+                    <button onClick={() => setEditando(r)} className="font-medium text-azul2 hover:underline">
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setErrorEliminar('')
+                        setEliminando(r)
+                      }}
+                      className="font-medium text-red-600 hover:underline"
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <ModalEditarSimple
+        tabla={tabla}
+        etiquetaSingular={etiquetaSingular}
+        registro={editando}
+        onClose={() => setEditando(null)}
+        onGuardado={cargar}
+      />
+
+      <Modal open={!!eliminando} onClose={() => setEliminando(null)} titulo={`Eliminar ${etiquetaSingular}`}>
+        <p className="mb-4 text-sm text-slate-600">
+          ¿Eliminar <strong>{eliminando?.nombre}</strong>? Esta acción no se puede deshacer.
+        </p>
+        {errorEliminar && <p className="mb-4 text-sm text-red-600">{errorEliminar}</p>}
+        <div className="flex gap-2">
+          <Boton variante="secundario" onClick={() => setEliminando(null)} className="flex-1">
+            Cancelar
+          </Boton>
+          <Boton variante="peligro" onClick={eliminar} className="flex-1">
+            Eliminar
+          </Boton>
+        </div>
+      </Modal>
+    </Card>
+  )
+}
+
+function ModalEditarSimple({
+  tabla,
+  etiquetaSingular,
+  registro,
+  onClose,
+  onGuardado,
+}: {
+  tabla: 'empresas' | 'ubicaciones'
+  etiquetaSingular: string
+  registro: RegistroSimple | 'nuevo' | null
+  onClose: () => void
+  onGuardado: () => void
+}) {
+  const esNuevo = registro === 'nuevo'
+  const [nombre, setNombre] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setError('')
+    if (registro && registro !== 'nuevo') setNombre(registro.nombre)
+    else if (registro === 'nuevo') setNombre('')
+  }, [registro])
+
+  async function guardar() {
+    if (!nombre.trim()) return
+    setGuardando(true)
+    setError('')
+    const { error: err } = esNuevo
+      ? await supabase.from(tabla).insert({ nombre: nombre.trim() })
+      : await supabase.from(tabla).update({ nombre: nombre.trim() }).eq('id', (registro as RegistroSimple).id)
+    setGuardando(false)
+    if (err) {
+      setError(err.code === '23505' ? 'Ya existe un registro con ese nombre.' : err.message)
+      return
+    }
+    onGuardado()
+    onClose()
+  }
+
+  return (
+    <Modal open={!!registro} onClose={onClose} titulo={esNuevo ? `Nueva ${etiquetaSingular}` : `Editar ${etiquetaSingular}`}>
+      <div className="flex flex-col gap-4">
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Nombre</span>
+          <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="campo" autoFocus />
+        </label>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex gap-2">
+          <Boton variante="secundario" onClick={onClose} className="flex-1">
+            Cancelar
+          </Boton>
+          <Boton onClick={guardar} disabled={guardando || !nombre.trim()} className="flex-1">
+            {guardando ? 'Guardando…' : 'Guardar'}
+          </Boton>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ------------------------------------------------------------
+// Sedes — igual patrón que Empresas/Ubicación pero con FK a Empresa.
+// ------------------------------------------------------------
+
+type SedeRegistro = { id: number; nombre: string; empresa_id: number; empresa: { nombre: string } | null }
+
+function SedesTab() {
+  const [sedes, setSedes] = useState<SedeRegistro[]>([])
+  const [empresas, setEmpresas] = useState<RegistroSimple[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [busqueda, setBusqueda] = useState('')
+  const [editando, setEditando] = useState<SedeRegistro | 'nuevo' | null>(null)
+  const [eliminando, setEliminando] = useState<SedeRegistro | null>(null)
+  const [errorEliminar, setErrorEliminar] = useState('')
+
+  useEffect(() => {
+    cargar()
+  }, [])
+
+  async function cargar() {
+    setCargando(true)
+    const [{ data: sd }, { data: emp }] = await Promise.all([
+      supabase.from('sedes').select('id, nombre, empresa_id, empresa:empresas(nombre)').order('nombre'),
+      supabase.from('empresas').select('id, nombre').order('nombre'),
+    ])
+    setSedes((sd as unknown as SedeRegistro[]) ?? [])
+    setEmpresas((emp as RegistroSimple[]) ?? [])
+    setCargando(false)
+  }
+
+  async function eliminar() {
+    if (!eliminando) return
+    setErrorEliminar('')
+    const { error } = await supabase.from('sedes').delete().eq('id', eliminando.id)
+    if (error) {
+      setErrorEliminar(mensajeErrorEliminar(error, eliminando.nombre))
+      return
+    }
+    setEliminando(null)
+    cargar()
+  }
+
+  const filtradas = sedes.filter((s) => !busqueda || s.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+
+  return (
+    <Card>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-slate-500">
+          Sedes de la Empresa (Torre, Urgencias, Centro de Especialistas). Catálogo independiente usado por la
+          cabecera de Nueva auto-evaluación.
+        </p>
+        <Boton onClick={() => setEditando('nuevo')} disabled={empresas.length === 0}>
+          Nueva sede
+        </Boton>
+      </div>
+
+      <FilterBar>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Buscar</span>
+          <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
+        </label>
+      </FilterBar>
+
+      {cargando ? (
+        <div className="flex justify-center py-16">
+          <Spinner />
+        </div>
+      ) : filtradas.length === 0 ? (
+        <p className="py-6 text-center text-sm text-slate-400">No hay registros para mostrar.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-slate-500">
+                <th className="py-2 pr-4">Sede</th>
+                <th className="py-2 pr-4">Empresa</th>
+                <th className="py-2 pr-4" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtradas.map((s) => (
+                <tr key={s.id}>
+                  <td className="py-2 pr-4 font-medium text-slate-700">{s.nombre}</td>
+                  <td className="py-2 pr-4 text-slate-500">{s.empresa?.nombre ?? '—'}</td>
+                  <td className="flex gap-3 py-2 pr-4 text-right text-xs">
+                    <button onClick={() => setEditando(s)} className="font-medium text-azul2 hover:underline">
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setErrorEliminar('')
+                        setEliminando(s)
+                      }}
+                      className="font-medium text-red-600 hover:underline"
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <ModalEditarSede
+        registro={editando}
+        empresas={empresas}
+        onClose={() => setEditando(null)}
+        onGuardado={cargar}
+      />
+
+      <Modal open={!!eliminando} onClose={() => setEliminando(null)} titulo="Eliminar sede">
+        <p className="mb-4 text-sm text-slate-600">
+          ¿Eliminar <strong>{eliminando?.nombre}</strong>? Esta acción no se puede deshacer.
+        </p>
+        {errorEliminar && <p className="mb-4 text-sm text-red-600">{errorEliminar}</p>}
+        <div className="flex gap-2">
+          <Boton variante="secundario" onClick={() => setEliminando(null)} className="flex-1">
+            Cancelar
+          </Boton>
+          <Boton variante="peligro" onClick={eliminar} className="flex-1">
+            Eliminar
+          </Boton>
+        </div>
+      </Modal>
+    </Card>
+  )
+}
+
+function ModalEditarSede({
+  registro,
+  empresas,
+  onClose,
+  onGuardado,
+}: {
+  registro: SedeRegistro | 'nuevo' | null
+  empresas: RegistroSimple[]
+  onClose: () => void
+  onGuardado: () => void
+}) {
+  const esNuevo = registro === 'nuevo'
+  const [nombre, setNombre] = useState('')
+  const [empresaId, setEmpresaId] = useState<number | null>(null)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setError('')
+    if (registro && registro !== 'nuevo') {
+      setNombre(registro.nombre)
+      setEmpresaId(registro.empresa_id)
+    } else if (registro === 'nuevo') {
+      setNombre('')
+      setEmpresaId(empresas[0]?.id ?? null)
+    }
+  }, [registro, empresas])
+
+  async function guardar() {
+    if (!nombre.trim() || !empresaId) return
+    setGuardando(true)
+    setError('')
+    const payload = { nombre: nombre.trim(), empresa_id: empresaId }
+    const { error: err } = esNuevo
+      ? await supabase.from('sedes').insert(payload)
+      : await supabase.from('sedes').update(payload).eq('id', (registro as SedeRegistro).id)
+    setGuardando(false)
+    if (err) {
+      setError(err.message)
+      return
+    }
+    onGuardado()
+    onClose()
+  }
+
+  return (
+    <Modal open={!!registro} onClose={onClose} titulo={esNuevo ? 'Nueva sede' : 'Editar sede'}>
+      <div className="flex flex-col gap-4">
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Nombre</span>
+          <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="campo" autoFocus />
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Empresa</span>
+          <select value={empresaId ?? ''} onChange={(e) => setEmpresaId(Number(e.target.value))} className="campo">
+            {empresas.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex gap-2">
+          <Boton variante="secundario" onClick={onClose} className="flex-1">
+            Cancelar
+          </Boton>
+          <Boton onClick={guardar} disabled={guardando || !nombre.trim() || !empresaId} className="flex-1">
             {guardando ? 'Guardando…' : 'Guardar'}
           </Boton>
         </div>
