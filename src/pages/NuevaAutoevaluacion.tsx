@@ -323,10 +323,27 @@ export default function NuevaAutoevaluacion() {
       if (!mapa.has(c.estandar)) mapa.set(c.estandar, [])
       mapa.get(c.estandar)!.push(c)
     }
-    return Array.from(mapa.entries()).map(([clave, items], i) => ({ clave, items, numero: i + 1 }))
+    return Array.from(mapa.entries()).map(([clave, items], i) => {
+      // Subdivisión dentro de cada Estándar por Numeral Servicio (columna I):
+      // agrupa juntos los criterios universales (numeral "5") y los propios
+      // de cada servicio (ej. "6.2.17"), cuyo numeral siempre empieza con el
+      // Numeral Grupo del mismo criterio (derivado 1 a 1 al guardar en
+      // Catálogos, ver Catalogos.tsx) — así el subgrupo mostrado siempre
+      // coincide con su Numeral Grupo real.
+      const mapaSub = new Map<string, Criterio[]>()
+      for (const c of items) {
+        if (!mapaSub.has(c.numeral_servicio)) mapaSub.set(c.numeral_servicio, [])
+        mapaSub.get(c.numeral_servicio)!.push(c)
+      }
+      const subgrupos = Array.from(mapaSub.entries())
+        .map(([numeral, sitems]) => ({ numeral, items: sitems }))
+        .sort((a, b) => a.numeral.localeCompare(b.numeral, undefined, { numeric: true }))
+      return { clave, items, numero: i + 1, subgrupos }
+    })
   }, [criterios])
 
   const [gruposColapsados, setGruposColapsados] = useState<Record<string, boolean>>({})
+  const [filtroGrupo, setFiltroGrupo] = useState<Record<string, Respuesta | 'todos'>>({})
 
   // Al entrar (o cambiar de servicio) los grupos arrancan contraídos — el
   // usuario los expande a demanda con los chips o "Expandir todo".
@@ -354,6 +371,11 @@ export default function NuevaAutoevaluacion() {
   function irAGrupo(clave: string, numero: number) {
     setGruposColapsados((prev) => ({ ...prev, [clave]: false }))
     document.getElementById(`grupo-${numero}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function filtrarItems(items: Criterio[], filtro: Respuesta | 'todos') {
+    if (filtro === 'todos') return items
+    return items.filter((c) => respuestas[c.id]?.respuesta === filtro)
   }
 
   const noCumpleSinCompromiso = useMemo(() => {
@@ -740,68 +762,77 @@ export default function NuevaAutoevaluacion() {
         </div>
       </Modal>
 
-      <div className="sticky top-0 z-10 mb-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
-            <div className="truncate text-xs text-slate-500">
-              {empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} · {sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} ·{' '}
-              {lugar || 'Sin lugar'} · {fecha} · Modalidad: {modalidadFiltro} · Complejidad: {complejidadFiltro}
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            <AnilloAvance avance={avance} />
-            <div className="text-xs leading-tight">
-              <div className="font-medium text-slate-600">
-                {avance.diligenciados}/{avance.total}
+      {/* Cabecera en 2 columnas: Col-1 datos del Servicio, Col-2 agrupadores de Estándar */}
+      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_260px]">
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
+              <div className="truncate text-xs text-slate-500">
+                {empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} · {sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} ·{' '}
+                {lugar || 'Sin lugar'} · {fecha} · Modalidad: {modalidadFiltro} · Complejidad: {complejidadFiltro}
               </div>
-              <div className="text-emerald-600">✔ {avance.pctCumple}%</div>
-              <div className="text-red-600">✘ {avance.pctNoCumple}%</div>
-              <div className="text-slate-500">⊘ {avance.pctNoAplica}%</div>
             </div>
-            {estado === 'finalizada' && (
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                Finalizada
-              </span>
-            )}
+            <div className="flex shrink-0 items-center gap-3">
+              <AnilloAvance avance={avance} />
+              <div className="text-xs leading-tight">
+                <div className="font-medium text-slate-600">
+                  {avance.diligenciados}/{avance.total}
+                </div>
+                <div className="text-emerald-600">✔ {avance.pctCumple}%</div>
+                <div className="text-red-600">✘ {avance.pctNoCumple}%</div>
+                <div className="text-slate-500">⊘ {avance.pctNoAplica}%</div>
+              </div>
+              {estado === 'finalizada' && (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                  Finalizada
+                </span>
+              )}
+            </div>
           </div>
+          {(servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura) && (
+            <details className="mt-1">
+              <summary className="cursor-pointer text-xs font-medium text-azul2">Ver descripción del servicio</summary>
+              {servicioSeleccionado?.descripcion && (
+                <p className="mt-1 text-xs text-slate-600">{servicioSeleccionado.descripcion}</p>
+              )}
+              {servicioSeleccionado?.estructura && (
+                <p className="mt-1 text-xs text-slate-500">{servicioSeleccionado.estructura}</p>
+              )}
+            </details>
+          )}
         </div>
-        {(servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura) && (
-          <details className="mt-1">
-            <summary className="cursor-pointer text-xs font-medium text-azul2">Ver descripción del servicio</summary>
-            {servicioSeleccionado?.descripcion && (
-              <p className="mt-1 text-xs text-slate-600">{servicioSeleccionado.descripcion}</p>
-            )}
-            {servicioSeleccionado?.estructura && (
-              <p className="mt-1 text-xs text-slate-500">{servicioSeleccionado.estructura}</p>
-            )}
-          </details>
-        )}
-      </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          {grupos.map((g) => {
-            const color = colorDeEstandar(g.clave)
-            return (
-              <button
-                key={g.clave}
-                onClick={() => irAGrupo(g.clave, g.numero)}
-                className={`rounded-md px-2 py-1 text-xs font-medium ${color.fondo} ${color.texto} hover:opacity-75`}
-                title={g.clave}
-              >
-                {g.numero}. {g.clave.replace('Estándar de ', '')}
+        <div className="lg:border-l lg:border-slate-100 lg:pl-3">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Agrupadores</span>
+            <div className="flex gap-2">
+              <button onClick={expandirTodo} title="Expandir todo" className="text-[11px] font-medium text-azul2 hover:underline">
+                Expandir
               </button>
-            )
-          })}
-        </div>
-        <div className="flex shrink-0 items-center gap-1 border-l border-slate-200 pl-2">
-          <button onClick={expandirTodo} className="rounded-md px-2 py-1 text-xs font-medium text-azul2 hover:bg-slate-100">
-            Expandir todo
-          </button>
-          <button onClick={contraerTodo} className="rounded-md px-2 py-1 text-xs font-medium text-azul2 hover:bg-slate-100">
-            Contraer todo
-          </button>
+              <button onClick={contraerTodo} title="Contraer todo" className="text-[11px] font-medium text-azul2 hover:underline">
+                Contraer
+              </button>
+            </div>
+          </div>
+          <div className="flex max-h-40 flex-col gap-1 overflow-y-auto pr-1 lg:max-h-none">
+            {grupos.map((g) => {
+              const color = colorDeEstandar(g.clave)
+              return (
+                <button
+                  key={g.clave}
+                  onClick={() => irAGrupo(g.clave, g.numero)}
+                  className={`flex items-center gap-2 rounded-md px-2 py-1 text-left text-xs font-medium ${color.fondo} ${color.texto} hover:opacity-75`}
+                  title={g.clave}
+                >
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${color.badge} text-[10px] font-bold text-white`}>
+                    {g.numero}
+                  </span>
+                  <span className="truncate">{g.clave.replace('Estándar de ', '')}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
@@ -816,6 +847,7 @@ export default function NuevaAutoevaluacion() {
             const color = colorDeEstandar(g.clave)
             const diligenciados = g.items.filter((c) => !!respuestas[c.id]?.respuesta).length
             const pendientes = g.items.length - diligenciados
+            const filtro = filtroGrupo[g.clave] ?? 'todos'
             return (
               <div key={g.clave} id={`grupo-${g.numero}`} className="scroll-mt-24">
                 <button
@@ -840,19 +872,39 @@ export default function NuevaAutoevaluacion() {
                   </span>
                 </button>
                 {!colapsado && (
-                  <div className="mt-2 flex flex-col gap-2 pl-2">
-                    {g.items.map((c) => (
-                      <FilaCriterio
-                        key={c.id}
-                        criterio={c}
-                        color={color}
-                        respuesta={respuestas[c.id]}
-                        soloLectura={estado === 'finalizada'}
-                        guardando={guardando === c.id}
-                        onResponder={(r) => responder(c.id, r)}
-                        onObservacion={(obs) => guardarObservacion(c.id, obs)}
-                      />
-                    ))}
+                  <div className="mt-2 flex flex-col gap-3 pl-2">
+                    <FiltroRespuestas
+                      valor={filtro}
+                      onCambiar={(f) => setFiltroGrupo((prev) => ({ ...prev, [g.clave]: f }))}
+                    />
+                    {g.subgrupos.map((sub) => {
+                      const itemsFiltrados = filtrarItems(sub.items, filtro)
+                      if (itemsFiltrados.length === 0) return null
+                      return (
+                        <div key={sub.numeral} className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2 pl-1">
+                            <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-white ${color.badge} opacity-80`}>
+                              {sub.numeral}
+                            </span>
+                            <span className="text-[11px] font-medium text-slate-400">
+                              {itemsFiltrados.length} de {sub.items.length}
+                            </span>
+                          </div>
+                          {itemsFiltrados.map((c) => (
+                            <FilaCriterio
+                              key={c.id}
+                              criterio={c}
+                              color={color}
+                              respuesta={respuestas[c.id]}
+                              soloLectura={estado === 'finalizada'}
+                              guardando={guardando === c.id}
+                              onResponder={(r) => responder(c.id, r)}
+                              onObservacion={(obs) => guardarObservacion(c.id, obs)}
+                            />
+                          ))}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -866,6 +918,37 @@ export default function NuevaAutoevaluacion() {
           <Boton onClick={alIntentarFinalizar}>Finalizar auto-evaluación</Boton>
         </div>
       )}
+    </div>
+  )
+}
+
+function FiltroRespuestas({
+  valor,
+  onCambiar,
+}: {
+  valor: Respuesta | 'todos'
+  onCambiar: (f: Respuesta | 'todos') => void
+}) {
+  const opciones: { valor: Respuesta | 'todos'; label: string; activo: string }[] = [
+    { valor: 'todos', label: 'Todos', activo: 'bg-slate-700 text-white' },
+    { valor: 'cumple', label: 'Cumple', activo: 'bg-emerald-600 text-white' },
+    { valor: 'no_cumple', label: 'No Cumple', activo: 'bg-red-600 text-white' },
+    { valor: 'no_aplica', label: 'No Aplica', activo: 'bg-slate-500 text-white' },
+  ]
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 pl-1">
+      <span className="text-[11px] font-medium text-slate-400">Ver:</span>
+      {opciones.map((o) => (
+        <button
+          key={o.valor}
+          onClick={() => onCambiar(o.valor)}
+          className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+            valor === o.valor ? o.activo : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   )
 }
