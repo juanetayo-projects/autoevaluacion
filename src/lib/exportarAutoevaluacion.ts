@@ -59,7 +59,6 @@ export async function exportarAutoevaluacionExcel(params: {
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Auto-evaluación', {
     pageSetup: { orientation: 'landscape', fitToPage: true },
-    views: [{ state: 'frozen', ySplit: 0 }],
   })
 
   ws.columns = [
@@ -74,7 +73,7 @@ export async function exportarAutoevaluacionExcel(params: {
       const resp = await fetch(params.logoUrl)
       const buffer = await resp.arrayBuffer()
       const imgId = wb.addImage({ buffer, extension: 'png' })
-      ws.addImage(imgId, { tl: { col: 0, row: 0.1 }, ext: { width: 130, height: 46 } })
+      ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: 130, height: 46 } })
     } catch {
       // el logo es decorativo — si falla la descarga, se exporta igual sin él
     }

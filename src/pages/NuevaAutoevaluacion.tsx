@@ -515,11 +515,11 @@ export default function NuevaAutoevaluacion() {
       <div>
         <PageHeader titulo="Nueva auto-evaluación" />
         <Card className="mx-auto max-w-2xl">
-          <div className="mb-4 flex justify-center">
+          <div className="mb-3">
             <img
               src={`${import.meta.env.BASE_URL}images/banner_resolucion1732.webp`}
               alt="Resolución 1732 de 2026 — CAC Santa Bárbara"
-              className="h-24 w-auto max-w-full rounded-lg"
+              className="w-full rounded-lg"
             />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

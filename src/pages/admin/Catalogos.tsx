@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Boton, Card, FilterBar, Modal, Spinner } from '../../components/ui/ui'
+import { exportarCriteriosExcel, exportarServiciosExcel } from '../../lib/exportarCatalogo'
+
+const LOGO_URL = `${import.meta.env.BASE_URL}images/logo_cacsb2.png`
 
 type Tab = 'servicios' | 'criterios'
 
@@ -67,6 +70,9 @@ function ServiciosRes1732Tab() {
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [cargando, setCargando] = useState(true)
   const [editando, setEditando] = useState<ServicioRes1732 | null>(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [grupoFiltro, setGrupoFiltro] = useState<number | ''>('')
+  const [exportando, setExportando] = useState(false)
 
   useEffect(() => {
     cargar()
@@ -87,6 +93,33 @@ function ServiciosRes1732Tab() {
     setCargando(false)
   }
 
+  const filtrados = servicios.filter((s) => {
+    if (grupoFiltro && s.grupo_res1732_id !== grupoFiltro) return false
+    if (busqueda && !s.nombre.toLowerCase().includes(busqueda.toLowerCase())) return false
+    return true
+  })
+
+  async function exportarExcel() {
+    setExportando(true)
+    try {
+      await exportarServiciosExcel({
+        filtros: [
+          ['Buscar servicio', busqueda || 'Todos'],
+          ['Grupo', grupos.find((g) => g.id === grupoFiltro)?.nombre ?? 'Todos'],
+        ],
+        servicios: filtrados.map((s) => ({
+          nombre: s.nombre,
+          grupo: s.grupo_res1732?.nombre ?? '—',
+          descripcion: s.descripcion ?? '',
+          estructura: s.estructura ?? '',
+        })),
+        logoUrl: LOGO_URL,
+      })
+    } finally {
+      setExportando(false)
+    }
+  }
+
   return (
     <Card>
       <p className="mb-4 text-xs text-slate-500">
@@ -94,6 +127,32 @@ function ServiciosRes1732Tab() {
         el catálogo que alimenta el selector "Servicio" al crear una auto-evaluación — no tiene Sede asociada, la
         Sede solo se captura al iniciar la auto-evaluación.
       </p>
+
+      <FilterBar>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Buscar servicio</span>
+          <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Grupo</span>
+          <select
+            value={grupoFiltro}
+            onChange={(e) => setGrupoFiltro(e.target.value ? Number(e.target.value) : '')}
+            className="campo"
+          >
+            <option value="">Todos</option>
+            {grupos.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Boton variante="secundario" onClick={exportarExcel} disabled={exportando} className="ml-auto">
+          {exportando ? 'Exportando…' : 'Exportar Excel'}
+        </Boton>
+      </FilterBar>
+
       {cargando ? (
         <div className="flex justify-center py-16">
           <Spinner />
@@ -110,7 +169,7 @@ function ServiciosRes1732Tab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {servicios.map((s) => (
+              {filtrados.map((s) => (
                 <tr key={s.id}>
                   <td className="py-2 pr-4 font-medium text-slate-700">{s.nombre}</td>
                   <td className="py-2 pr-4">{s.grupo_res1732?.nombre ?? '—'}</td>
@@ -243,12 +302,17 @@ function CriteriosTab() {
   const [pagina, setPagina] = useState(0)
   const [busqueda, setBusqueda] = useState('')
   const [servicioFiltro, setServicioFiltro] = useState<number | ''>('')
+  const [grupoFiltro, setGrupoFiltro] = useState<number | ''>('')
+  const [estandarFiltro, setEstandarFiltro] = useState('')
+  const [complejidadFiltro, setComplejidadFiltro] = useState('')
+  const [modalidadFiltro, setModalidadFiltro] = useState('')
   const [servicios, setServicios] = useState<{ id: number; nombre: string }[]>([])
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [opcionesEstandar, setOpcionesEstandar] = useState<string[]>([])
   const [opcionesComplejidad, setOpcionesComplejidad] = useState<string[]>([])
   const [opcionesModalidad, setOpcionesModalidad] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
+  const [exportando, setExportando] = useState(false)
   const [editando, setEditando] = useState<Criterio | 'nuevo' | null>(null)
   const [eliminando, setEliminando] = useState<Criterio | null>(null)
 
@@ -279,26 +343,67 @@ function CriteriosTab() {
   useEffect(() => {
     cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagina, busqueda, servicioFiltro])
+  }, [pagina, busqueda, servicioFiltro, grupoFiltro, estandarFiltro, complejidadFiltro, modalidadFiltro])
 
-  async function cargar() {
-    setCargando(true)
+  // Reusado por cargar() (paginado) y exportarExcel() (sin paginar) para que
+  // el Excel siempre coincida exactamente con los filtros activos en pantalla.
+  function construirQuery(columnas: string, conteo: boolean) {
     let query = supabase
       .from('criterios_res1732')
-      .select(
-        'id, llave, numero, item, pagina, criterio, grupo_res1732_id, servicio_res1732_id, numeral_grupo, numeral_servicio, estandar, complejidad, modalidad, grupo_res1732:grupos_res1732(nombre), servicio_res1732:servicios_res1732(nombre)',
-        { count: 'exact' },
-      )
+      .select(columnas, conteo ? { count: 'exact' } : undefined)
       .order('numero')
-      .range(pagina * POR_PAGINA, pagina * POR_PAGINA + POR_PAGINA - 1)
 
     if (busqueda) query = query.ilike('criterio', `%${busqueda}%`)
     if (servicioFiltro) query = query.eq('servicio_res1732_id', servicioFiltro)
+    if (grupoFiltro) query = query.eq('grupo_res1732_id', grupoFiltro)
+    if (estandarFiltro) query = query.eq('estandar', estandarFiltro)
+    if (complejidadFiltro) query = query.eq('complejidad', complejidadFiltro)
+    if (modalidadFiltro) query = query.eq('modalidad', modalidadFiltro)
+    return query
+  }
 
+  async function cargar() {
+    setCargando(true)
+    const columnas =
+      'id, llave, numero, item, pagina, criterio, grupo_res1732_id, servicio_res1732_id, numeral_grupo, numeral_servicio, estandar, complejidad, modalidad, grupo_res1732:grupos_res1732(nombre), servicio_res1732:servicios_res1732(nombre)'
+    const query = construirQuery(columnas, true).range(pagina * POR_PAGINA, pagina * POR_PAGINA + POR_PAGINA - 1)
     const { data, count } = await query
     setCriterios((data as unknown as Criterio[]) ?? [])
     setTotal(count ?? 0)
     setCargando(false)
+  }
+
+  async function exportarExcel() {
+    setExportando(true)
+    try {
+      const columnas = 'numero, item, pagina, criterio, estandar, complejidad, modalidad, grupo_res1732:grupos_res1732(nombre), servicio_res1732:servicios_res1732(nombre)'
+      const { data } = await construirQuery(columnas, false)
+      const filas = (data ?? []) as unknown as (Omit<Criterio, 'id' | 'llave' | 'grupo_res1732_id' | 'servicio_res1732_id' | 'numeral_grupo' | 'numeral_servicio'>)[]
+      await exportarCriteriosExcel({
+        filtros: [
+          ['Buscar en criterio', busqueda || 'Todos'],
+          ['Servicio', servicios.find((s) => s.id === servicioFiltro)?.nombre ?? 'Todos'],
+          ['Grupo', grupos.find((g) => g.id === grupoFiltro)?.nombre ?? 'Todos'],
+          ['Estándar', estandarFiltro || 'Todos'],
+          ['Complejidad', complejidadFiltro || 'Todas'],
+          ['Modalidad', modalidadFiltro || 'Todas'],
+        ],
+        criterios: filas.map((c) => ({
+          numero: c.numero,
+          item: c.item ?? '',
+          pagina: c.pagina ?? '',
+          criterio: c.criterio,
+          grupo: c.grupo_res1732?.nombre ?? '—',
+          servicio: c.servicio_res1732?.nombre ?? '—',
+          estandar: c.estandar,
+          complejidad: c.complejidad,
+          modalidad: c.modalidad ?? '',
+        })),
+        logoUrl: LOGO_URL,
+      })
+    } finally {
+      setExportando(false)
+    }
   }
 
   async function eliminar() {
@@ -347,6 +452,81 @@ function CriteriosTab() {
             ))}
           </select>
         </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Grupo</span>
+          <select
+            value={grupoFiltro}
+            onChange={(e) => {
+              setPagina(0)
+              setGrupoFiltro(e.target.value ? Number(e.target.value) : '')
+            }}
+            className="campo"
+          >
+            <option value="">Todos</option>
+            {grupos.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Estándar</span>
+          <select
+            value={estandarFiltro}
+            onChange={(e) => {
+              setPagina(0)
+              setEstandarFiltro(e.target.value)
+            }}
+            className="campo"
+          >
+            <option value="">Todos</option>
+            {opcionesEstandar.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Complejidad</span>
+          <select
+            value={complejidadFiltro}
+            onChange={(e) => {
+              setPagina(0)
+              setComplejidadFiltro(e.target.value)
+            }}
+            className="campo"
+          >
+            <option value="">Todas</option>
+            {opcionesComplejidad.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Modalidad</span>
+          <select
+            value={modalidadFiltro}
+            onChange={(e) => {
+              setPagina(0)
+              setModalidadFiltro(e.target.value)
+            }}
+            className="campo"
+          >
+            <option value="">Todas</option>
+            {opcionesModalidad.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Boton variante="secundario" onClick={exportarExcel} disabled={exportando}>
+          {exportando ? 'Exportando…' : 'Exportar Excel'}
+        </Boton>
         <Boton onClick={() => setEditando('nuevo')} className="ml-auto">
           Nuevo criterio
         </Boton>
