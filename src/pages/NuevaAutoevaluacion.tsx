@@ -515,11 +515,11 @@ export default function NuevaAutoevaluacion() {
       <div>
         <PageHeader titulo="Nueva auto-evaluación" />
         <Card className="mx-auto max-w-2xl">
-          <div className="mb-5 overflow-hidden rounded-xl">
+          <div className="mb-4 flex justify-center">
             <img
               src={`${import.meta.env.BASE_URL}images/banner_resolucion1732.webp`}
               alt="Resolución 1732 de 2026 — CAC Santa Bárbara"
-              className="w-full"
+              className="h-20 w-auto rounded-lg"
             />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -787,20 +787,40 @@ export default function NuevaAutoevaluacion() {
         </div>
       </Modal>
 
-      {/* Cabecera compacta en columnas: Servicio | Avance | Agrupadores (2 col) | Descripción (con scroll).
-          Servicio/Agrupadores/Descripción reparten el espacio en proporción (1.3:1:1) en vez de que
+      {/* Cabecera compacta en columnas: Servicio | Descripción | Avance | Agrupadores (2 col).
+          Servicio/Descripción/Agrupadores reparten el espacio en proporción (1.3:1:1) en vez de que
           Servicio absorba todo el ancho sobrante — Avance queda fijo porque el anillo tiene tamaño fijo. */}
-      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,1.3fr)_96px_minmax(200px,1fr)_minmax(200px,1fr)]">
+      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,1.3fr)_minmax(200px,1fr)_96px_minmax(200px,1fr)]">
         <div className="min-w-0">
           <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
-          <div className="truncate text-xs text-slate-500">
-            {empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} · {sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} ·{' '}
-            {lugar || 'Sin lugar'} · {fecha} · Modalidad: {modalidadFiltro} · Complejidad: {complejidadFiltro}
-          </div>
           {estado === 'finalizada' && (
             <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
               Finalizada
             </span>
+          )}
+          {/* Filtros seleccionados en líneas independientes, agrupados por color:
+              Ubicación (Empresa/Sede/Lugar) y Cuándo/criterios (Fecha/Modalidad/Complejidad). */}
+          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 text-[11px]">
+            <FilaEtiqueta etiqueta="Empresa" valor={empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} tono="bg-sky-50" />
+            <FilaEtiqueta etiqueta="Sede" valor={sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} tono="bg-sky-50/60" />
+            <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50" />
+            <FilaEtiqueta etiqueta="Fecha" valor={fecha} tono="bg-amber-50" />
+            <FilaEtiqueta etiqueta="Modalidad" valor={modalidadFiltro} tono="bg-amber-50/60" />
+            <FilaEtiqueta etiqueta="Complejidad" valor={complejidadFiltro} tono="bg-amber-50" />
+          </div>
+        </div>
+
+        <div className="lg:border-l lg:border-slate-100 lg:pl-3">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Descripción del servicio
+          </span>
+          {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
+            <div className="max-h-32 overflow-y-auto pr-1 text-xs leading-snug text-slate-600">
+              {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
+              {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400">Sin descripción.</p>
           )}
         </div>
 
@@ -847,20 +867,6 @@ export default function NuevaAutoevaluacion() {
             })}
           </div>
         </div>
-
-        <div className="lg:border-l lg:border-slate-100 lg:pl-3">
-          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Descripción del servicio
-          </span>
-          {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
-            <div className="max-h-24 overflow-y-auto pr-1 text-xs leading-snug text-slate-600">
-              {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
-              {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400">Sin descripción.</p>
-          )}
-        </div>
       </div>
 
       {cargandoCriterios ? (
@@ -868,7 +874,7 @@ export default function NuevaAutoevaluacion() {
           <Spinner />
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex max-w-4xl flex-col gap-3">
           {grupos.map((g) => {
             const colapsado = !!gruposColapsados[g.clave]
             const color = colorDeEstandar(g.clave)
@@ -1145,6 +1151,19 @@ function AnilloAvance({ avance }: { avance: Avance }) {
       <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-azul">
         {avance.pctCumple}%
       </div>
+    </div>
+  )
+}
+
+// Fila etiqueta:valor para los filtros seleccionados en la cabecera —
+// patrón de fila con fondo de color tomado de PanelResumen (permisos_tthh).
+function FilaEtiqueta({ etiqueta, valor, tono }: { etiqueta: string; valor: string; tono: string }) {
+  return (
+    <div className={`flex items-center justify-between gap-2 px-2.5 py-1 ${tono}`}>
+      <span className="shrink-0 text-slate-500">{etiqueta}</span>
+      <span className="min-w-0 truncate font-medium text-slate-700" title={valor}>
+        {valor}
+      </span>
     </div>
   )
 }
