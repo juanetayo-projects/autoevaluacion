@@ -57,8 +57,8 @@ function colorDeEstandar(estandar: string) {
 // Distinción visual universal (Cap. 5, "Todo los servicios") vs. propio del
 // Servicio elegido — independiente del color de cada Estándar, para que se
 // note de un vistazo cuál criterio aplica siempre y cuál es específico.
-const COLOR_UNIVERSAL = { badge: 'bg-slate-500', texto: 'text-slate-600', fondo: 'bg-slate-100' }
-const COLOR_PROPIO = { badge: 'bg-teal-600', texto: 'text-teal-700', fondo: 'bg-teal-50' }
+const COLOR_UNIVERSAL = { badge: 'bg-slate-500', texto: 'text-slate-600', fondo: 'bg-slate-100', fondoItem: 'bg-slate-50' }
+const COLOR_PROPIO = { badge: 'bg-teal-600', texto: 'text-teal-700', fondo: 'bg-teal-50', fondoItem: 'bg-teal-50/50' }
 type FiltroRespuestaValor = Respuesta | 'todos' | 'pendiente'
 type FiltroServicioValor = 'todos' | 'universal' | 'propio'
 type RespuestaLocal = { respuesta: Respuesta; observacion: string; respuestaId?: number }
@@ -519,7 +519,7 @@ export default function NuevaAutoevaluacion() {
             <img
               src={`${import.meta.env.BASE_URL}images/banner_resolucion1732.webp`}
               alt="Resolución 1732 de 2026 — CAC Santa Bárbara"
-              className="h-20 w-auto rounded-lg"
+              className="h-24 w-auto max-w-full rounded-lg"
             />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -791,16 +791,20 @@ export default function NuevaAutoevaluacion() {
           Servicio/Descripción/Agrupadores reparten el espacio en proporción (1.3:1:1) en vez de que
           Servicio absorba todo el ancho sobrante — Avance queda fijo porque el anillo tiene tamaño fijo. */}
       <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[minmax(220px,1.3fr)_minmax(200px,1fr)_96px_minmax(200px,1fr)]">
-        <div className="min-w-0">
-          <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
-          {estado === 'finalizada' && (
-            <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-              Finalizada
-            </span>
-          )}
+        <div className="flex h-full min-w-0 flex-col">
+          <div className="shrink-0">
+            <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
+            {estado === 'finalizada' && (
+              <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                Finalizada
+              </span>
+            )}
+          </div>
           {/* Filtros seleccionados en líneas independientes, agrupados por color:
-              Ubicación (Empresa/Sede/Lugar) y Cuándo/criterios (Fecha/Modalidad/Complejidad). */}
-          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 text-[11px]">
+              Ubicación (Empresa/Sede/Lugar) y Cuándo/criterios (Fecha/Modalidad/Complejidad).
+              flex-1 en vez de alto natural: así el borde llega hasta el mismo fondo que la
+              columna de Descripción (ambas quedan alineadas sin importar cuál tenga más texto). */}
+          <div className="mt-2 min-h-0 flex-1 overflow-y-auto rounded-lg border border-slate-200 text-[11px]">
             <FilaEtiqueta etiqueta="Empresa" valor={empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} tono="bg-sky-50" />
             <FilaEtiqueta etiqueta="Sede" valor={sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} tono="bg-sky-50/60" />
             <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50" />
@@ -810,12 +814,12 @@ export default function NuevaAutoevaluacion() {
           </div>
         </div>
 
-        <div className="lg:border-l lg:border-slate-100 lg:pl-3">
-          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <div className="flex h-full flex-col lg:border-l lg:border-slate-100 lg:pl-3">
+          <span className="mb-1 block shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             Descripción del servicio
           </span>
           {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
-            <div className="max-h-32 overflow-y-auto pr-1 text-xs leading-snug text-slate-600">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1 text-xs leading-snug text-slate-600">
               {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
               {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
             </div>
@@ -874,7 +878,7 @@ export default function NuevaAutoevaluacion() {
           <Spinner />
         </div>
       ) : (
-        <div className="flex max-w-4xl flex-col gap-3">
+        <div className="flex flex-col gap-3">
           {grupos.map((g) => {
             const colapsado = !!gruposColapsados[g.clave]
             const color = colorDeEstandar(g.clave)
@@ -917,7 +921,7 @@ export default function NuevaAutoevaluacion() {
                   )}
                 </div>
                 {!colapsado && (
-                  <div className="mt-2 flex flex-col gap-3 pl-2">
+                  <div className="mx-auto mt-2 flex max-w-4xl flex-col gap-3 pl-2">
                     {g.subgrupos.map((sub) => {
                       if (filtroServicio === 'universal' && !sub.esUniversal) return null
                       if (filtroServicio === 'propio' && sub.esUniversal) return null
@@ -942,6 +946,7 @@ export default function NuevaAutoevaluacion() {
                               key={c.id}
                               criterio={c}
                               color={color}
+                              colorOrigen={colorSub}
                               respuesta={respuestas[c.id]}
                               soloLectura={estado === 'finalizada'}
                               guardando={guardando === c.id}
@@ -1040,6 +1045,7 @@ function FiltroRespuestas({
 function FilaCriterio({
   criterio,
   color,
+  colorOrigen,
   respuesta,
   soloLectura,
   guardando,
@@ -1048,6 +1054,7 @@ function FilaCriterio({
 }: {
   criterio: Criterio
   color: { borde: string; fondo: string; texto: string; badge: string }
+  colorOrigen: { badge: string; texto: string; fondo: string; fondoItem: string }
   respuesta?: RespuestaLocal
   soloLectura: boolean
   guardando: boolean
@@ -1059,6 +1066,9 @@ function FilaCriterio({
     { valor: 'no_cumple', icono: <X size={14} />, activo: 'border-red-600 bg-red-600 text-white', label: 'No Cumple' },
     { valor: 'no_aplica', icono: <MinusCircle size={14} />, activo: 'border-slate-500 bg-slate-500 text-white', label: 'No Aplica' },
   ]
+  // Sin responder: se tiñe con el color de origen (universal/propio) para que
+  // se note incluso antes de contestar. Ya respondido: el color de la
+  // respuesta manda (más útil para revisar el avance).
   const tintFondo =
     respuesta?.respuesta === 'cumple'
       ? 'bg-emerald-50/60'
@@ -1066,7 +1076,7 @@ function FilaCriterio({
         ? 'bg-red-50/50'
         : respuesta?.respuesta === 'no_aplica'
           ? 'bg-slate-50'
-          : 'bg-white'
+          : colorOrigen.fondoItem
 
   return (
     <div className={`rounded-xl border border-slate-200 ${tintFondo} p-3.5 shadow-sm transition-shadow hover:shadow-md`}>
