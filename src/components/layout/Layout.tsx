@@ -24,12 +24,13 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-full">
       <aside className="flex w-64 flex-shrink-0 flex-col bg-gradient-to-b from-azul to-azul2 px-3 py-5">
-        <div className="mb-6 flex items-center justify-center px-2">
+        <div className="mb-6 flex flex-col items-center gap-2 px-2 text-center">
           <img
             src={`${import.meta.env.BASE_URL}images/logo_cacsb_blanc.png`}
             alt="CAC Santa Bárbara"
             className="h-10"
           />
+          <span className="text-sm font-semibold leading-tight text-white">Resolución 1732</span>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1">

@@ -497,6 +497,13 @@ export default function NuevaAutoevaluacion() {
       <div>
         <PageHeader titulo="Nueva auto-evaluación" />
         <Card className="mx-auto max-w-2xl">
+          <div className="mb-5 flex justify-center">
+            <img
+              src={`${import.meta.env.BASE_URL}images/logo_cacsb2.png`}
+              alt="CAC Santa Bárbara"
+              className="h-12"
+            />
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Campo label="Empresa">
               <select
@@ -762,45 +769,31 @@ export default function NuevaAutoevaluacion() {
         </div>
       </Modal>
 
-      {/* Cabecera en 2 columnas: Col-1 datos del Servicio, Col-2 agrupadores de Estándar */}
-      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_260px]">
-        <div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
-              <div className="truncate text-xs text-slate-500">
-                {empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} · {sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} ·{' '}
-                {lugar || 'Sin lugar'} · {fecha} · Modalidad: {modalidadFiltro} · Complejidad: {complejidadFiltro}
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-3">
-              <AnilloAvance avance={avance} />
-              <div className="text-xs leading-tight">
-                <div className="font-medium text-slate-600">
-                  {avance.diligenciados}/{avance.total}
-                </div>
-                <div className="text-emerald-600">✔ {avance.pctCumple}%</div>
-                <div className="text-red-600">✘ {avance.pctNoCumple}%</div>
-                <div className="text-slate-500">⊘ {avance.pctNoAplica}%</div>
-              </div>
-              {estado === 'finalizada' && (
-                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                  Finalizada
-                </span>
-              )}
-            </div>
+      {/* Cabecera compacta en columnas: Servicio | Avance | Agrupadores (2 col) | Descripción (con scroll) */}
+      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_88px_240px_220px]">
+        <div className="min-w-0">
+          <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
+          <div className="truncate text-xs text-slate-500">
+            {empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} · {sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} ·{' '}
+            {lugar || 'Sin lugar'} · {fecha} · Modalidad: {modalidadFiltro} · Complejidad: {complejidadFiltro}
           </div>
-          {(servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura) && (
-            <details className="mt-1">
-              <summary className="cursor-pointer text-xs font-medium text-azul2">Ver descripción del servicio</summary>
-              {servicioSeleccionado?.descripcion && (
-                <p className="mt-1 text-xs text-slate-600">{servicioSeleccionado.descripcion}</p>
-              )}
-              {servicioSeleccionado?.estructura && (
-                <p className="mt-1 text-xs text-slate-500">{servicioSeleccionado.estructura}</p>
-              )}
-            </details>
+          {estado === 'finalizada' && (
+            <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+              Finalizada
+            </span>
           )}
+        </div>
+
+        <div className="flex items-center gap-2 lg:flex-col lg:items-center lg:justify-center lg:gap-1 lg:border-l lg:border-slate-100 lg:pl-3">
+          <AnilloAvance avance={avance} />
+          <div className="text-xs leading-tight">
+            <div className="font-medium text-slate-600">
+              {avance.diligenciados}/{avance.total}
+            </div>
+            <div className="text-emerald-600">✔ {avance.pctCumple}%</div>
+            <div className="text-red-600">✘ {avance.pctNoCumple}%</div>
+            <div className="text-slate-500">⊘ {avance.pctNoAplica}%</div>
+          </div>
         </div>
 
         <div className="lg:border-l lg:border-slate-100 lg:pl-3">
@@ -815,17 +808,17 @@ export default function NuevaAutoevaluacion() {
               </button>
             </div>
           </div>
-          <div className="flex max-h-40 flex-col gap-1 overflow-y-auto pr-1 lg:max-h-none">
+          <div className="grid max-h-24 grid-cols-2 gap-1 overflow-y-auto pr-1 lg:max-h-none">
             {grupos.map((g) => {
               const color = colorDeEstandar(g.clave)
               return (
                 <button
                   key={g.clave}
                   onClick={() => irAGrupo(g.clave, g.numero)}
-                  className={`flex items-center gap-2 rounded-md px-2 py-1 text-left text-xs font-medium ${color.fondo} ${color.texto} hover:opacity-75`}
+                  className={`flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] font-medium ${color.fondo} ${color.texto} hover:opacity-75`}
                   title={g.clave}
                 >
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${color.badge} text-[10px] font-bold text-white`}>
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded ${color.badge} text-[9px] font-bold text-white`}>
                     {g.numero}
                   </span>
                   <span className="truncate">{g.clave.replace('Estándar de ', '')}</span>
@@ -833,6 +826,20 @@ export default function NuevaAutoevaluacion() {
               )
             })}
           </div>
+        </div>
+
+        <div className="lg:border-l lg:border-slate-100 lg:pl-3">
+          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            Descripción del servicio
+          </span>
+          {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
+            <div className="max-h-24 overflow-y-auto pr-1 text-xs leading-snug text-slate-600">
+              {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
+              {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400">Sin descripción.</p>
+          )}
         </div>
       </div>
 
@@ -850,33 +857,34 @@ export default function NuevaAutoevaluacion() {
             const filtro = filtroGrupo[g.clave] ?? 'todos'
             return (
               <div key={g.clave} id={`grupo-${g.numero}`} className="scroll-mt-24">
-                <button
-                  onClick={() => alternarGrupo(g.clave)}
-                  className={`flex w-full items-center gap-2 rounded-lg border-l-4 ${color.borde} ${color.fondo} px-3 py-2 text-left`}
+                <div
+                  className={`flex w-full flex-wrap items-center gap-2 rounded-lg border-l-4 ${color.borde} ${color.fondo} px-3 py-2`}
                 >
-                  <span className={`rounded ${color.badge} px-2 py-0.5 text-xs font-bold text-white`}>
-                    {g.numero}
-                  </span>
-                  <span className={`flex-1 truncate text-sm font-medium ${color.texto}`}>{g.clave}</span>
-                  <span className="hidden shrink-0 items-center gap-2 text-xs text-slate-500 sm:flex">
-                    <span title="Total de preguntas">{g.items.length} preguntas</span>
-                    <span className="text-emerald-600" title="Diligenciadas">
-                      {diligenciados} diligenciadas
+                  <button onClick={() => alternarGrupo(g.clave)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                    <span className={`rounded ${color.badge} px-2 py-0.5 text-xs font-bold text-white`}>
+                      {g.numero}
                     </span>
-                    <span className="text-amber-600" title="Pendientes">
-                      {pendientes} pendientes
+                    <span className={`truncate text-sm font-medium ${color.texto}`}>{g.clave}</span>
+                    <span className="hidden shrink-0 items-center gap-2 text-xs text-slate-500 sm:flex">
+                      <span title="Total de preguntas">{g.items.length} preguntas</span>
+                      <span className="text-emerald-600" title="Diligenciadas">
+                        {diligenciados} diligenciadas
+                      </span>
+                      <span className="text-amber-600" title="Pendientes">
+                        {pendientes} pendientes
+                      </span>
                     </span>
-                  </span>
-                  <span className="shrink-0 text-xs text-slate-400">
-                    {colapsado ? 'Expandir' : 'Contraer'}
-                  </span>
-                </button>
-                {!colapsado && (
-                  <div className="mt-2 flex flex-col gap-3 pl-2">
+                    <span className="shrink-0 text-xs text-slate-400">{colapsado ? 'Expandir' : 'Contraer'}</span>
+                  </button>
+                  {!colapsado && (
                     <FiltroRespuestas
                       valor={filtro}
                       onCambiar={(f) => setFiltroGrupo((prev) => ({ ...prev, [g.clave]: f }))}
                     />
+                  )}
+                </div>
+                {!colapsado && (
+                  <div className="mt-2 flex flex-col gap-3 pl-2">
                     {g.subgrupos.map((sub) => {
                       const itemsFiltrados = filtrarItems(sub.items, filtro)
                       if (itemsFiltrados.length === 0) return null
@@ -936,14 +944,17 @@ function FiltroRespuestas({
     { valor: 'no_aplica', label: 'No Aplica', activo: 'bg-slate-500 text-white' },
   ]
   return (
-    <div className="flex flex-wrap items-center gap-1.5 pl-1">
-      <span className="text-[11px] font-medium text-slate-400">Ver:</span>
+    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+      <span className="text-[11px] font-medium text-slate-500">Ver:</span>
       {opciones.map((o) => (
         <button
           key={o.valor}
-          onClick={() => onCambiar(o.valor)}
+          onClick={(e) => {
+            e.stopPropagation()
+            onCambiar(o.valor)
+          }}
           className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-            valor === o.valor ? o.activo : 'border border-slate-200 text-slate-500 hover:bg-slate-50'
+            valor === o.valor ? o.activo : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
           }`}
         >
           {o.label}
