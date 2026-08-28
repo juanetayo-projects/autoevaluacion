@@ -804,8 +804,10 @@ export default function NuevaAutoevaluacion() {
             </span>
           )}
           {/* Filtros seleccionados en líneas independientes, agrupados por color:
-              Ubicación (Empresa/Sede/Lugar) y Cuándo/criterios (Fecha/Modalidad/Complejidad). */}
-          <div className="mt-2 max-h-32 overflow-y-auto rounded-lg border border-slate-200 text-[11px]">
+              Ubicación (Empresa/Sede/Lugar) y Cuándo/criterios (Fecha/Modalidad/Complejidad).
+              Sin max-h/scroll: son siempre las mismas 6 filas cortas, nunca deberían necesitar
+              recortarse (a diferencia de la Descripción, de longitud variable). */}
+          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 text-[11px]">
             <FilaEtiqueta etiqueta="Empresa" valor={empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} tono="bg-sky-50" />
             <FilaEtiqueta etiqueta="Sede" valor={sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} tono="bg-sky-50/60" />
             <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50" />
