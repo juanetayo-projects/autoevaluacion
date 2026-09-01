@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { ChevronDown } from 'lucide-react'
 
 // --- Card de métrica con degradado institucional ---
 export function MetricCard({
@@ -160,6 +161,81 @@ export function SelectorMultiple({
             {o}
           </button>
         ))
+      )}
+    </div>
+  )
+}
+
+// --- Selector de opción múltiple como lista desplegable (pedido 2026-09-01):
+// un botón tipo <select> que abre un panel con checkboxes al hacer clic —
+// más compacto que SelectorMultiple (chips) para filtros con muchas
+// opciones de texto largo (ej. Complejidad/Modalidad en Catálogos), donde
+// los chips se desbordaban en varias líneas. Sin selección = "Todas". ---
+export function SelectorDesplegable({
+  opciones,
+  seleccionados,
+  onCambiar,
+  placeholder = 'Todas',
+}: {
+  opciones: string[]
+  seleccionados: string[]
+  onCambiar: (valores: string[]) => void
+  placeholder?: string
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const contenedorRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!abierto) return
+    function alClicFuera(e: MouseEvent) {
+      if (contenedorRef.current && !contenedorRef.current.contains(e.target as Node)) setAbierto(false)
+    }
+    document.addEventListener('mousedown', alClicFuera)
+    return () => document.removeEventListener('mousedown', alClicFuera)
+  }, [abierto])
+
+  function alternar(valor: string) {
+    onCambiar(seleccionados.includes(valor) ? seleccionados.filter((v) => v !== valor) : [...seleccionados, valor])
+  }
+
+  const etiqueta =
+    seleccionados.length === 0
+      ? placeholder
+      : seleccionados.length === 1
+        ? seleccionados[0]
+        : `${seleccionados.length} seleccionadas`
+
+  return (
+    <div className="relative" ref={contenedorRef}>
+      <button
+        type="button"
+        onClick={() => setAbierto((v) => !v)}
+        className="campo flex w-full items-center justify-between gap-1.5 py-1.5 text-left"
+      >
+        <span className={`truncate ${seleccionados.length === 0 ? 'text-slate-400' : 'text-slate-700'}`}>{etiqueta}</span>
+        <ChevronDown size={14} className={`shrink-0 text-slate-400 transition-transform ${abierto ? 'rotate-180' : ''}`} />
+      </button>
+      {abierto && (
+        <div className="absolute z-20 mt-1 max-h-56 w-max min-w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+          {opciones.length === 0 ? (
+            <div className="whitespace-nowrap px-3 py-1.5 text-sm text-slate-400">Sin opciones</div>
+          ) : (
+            opciones.map((o) => (
+              <label
+                key={o}
+                className="flex cursor-pointer items-center gap-2 whitespace-nowrap px-3 py-1.5 text-sm hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={seleccionados.includes(o)}
+                  onChange={() => alternar(o)}
+                  className="rounded border-slate-300 text-azul focus:ring-azul"
+                />
+                <span className="text-slate-700">{o}</span>
+              </label>
+            ))
+          )}
+        </div>
       )}
     </div>
   )

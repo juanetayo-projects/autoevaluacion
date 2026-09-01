@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Boton, Card, FilterBar, Modal, SelectorMultiple, Spinner } from '../../components/ui/ui'
+import { Boton, Card, FilterBar, Modal, SelectorDesplegable, Spinner } from '../../components/ui/ui'
 import { exportarCriteriosExcel, exportarServiciosExcel } from '../../lib/exportarCatalogo'
 import { RESOLUCIONES, type ResolucionKey } from '../../domain/resoluciones'
 
@@ -337,9 +337,9 @@ function ModalEditarServicioCatalogo({
 // Criterios — tabla maestra de criterios de la resolución (3.557 filas en
 // Res.1732, columnas C:L del Excel; 3.814 filas en Res.3100). Parametrizado
 // por `resolucion` (pedido 2026-09-01, punto 3), igual que ServiciosCatalogoTab.
-// El filtro de Complejidad/Modalidad usa SelectorMultiple (chips) en vez del
-// <select multiple> nativo — el nativo se veía roto/truncado (punto 2 del
-// mismo pedido).
+// El filtro de Complejidad/Modalidad usa SelectorDesplegable (lista
+// desplegable con checkboxes) en vez del <select multiple> nativo — el
+// nativo se veía roto/truncado (punto 2 del mismo pedido).
 // ============================================================
 
 type CriterioCatalogo = {
@@ -612,12 +612,13 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
             ))}
           </select>
         </CampoFiltro>
-        {/* Chips (SelectorMultiple) en vez del <select multiple> nativo — se
-            veía roto/truncado con las opciones reales de Complejidad/
-            Modalidad, que traen comas y frases largas (punto 2 del pedido
-            2026-09-01). Sin selección = "Todas". */}
-        <CampoFiltro label="Complejidad" className="w-56">
-          <SelectorMultiple
+        {/* Lista desplegable (SelectorDesplegable) en vez del <select
+            multiple> nativo — el nativo se veía roto/truncado con las
+            opciones reales de Complejidad/Modalidad, que traen comas y
+            frases largas (punto 2 del pedido 2026-09-01). Sin selección =
+            "Todas". */}
+        <CampoFiltro label="Complejidad" className="w-40">
+          <SelectorDesplegable
             opciones={opcionesComplejidadFiltro}
             seleccionados={complejidadFiltro}
             onCambiar={(v) => {
@@ -626,8 +627,8 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
             }}
           />
         </CampoFiltro>
-        <CampoFiltro label="Modalidad" className="w-64">
-          <SelectorMultiple
+        <CampoFiltro label="Modalidad" className="w-40">
+          <SelectorDesplegable
             opciones={opcionesModalidadFiltro}
             seleccionados={modalidadFiltro}
             onCambiar={(v) => {
