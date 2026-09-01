@@ -11,9 +11,16 @@ type Fila = {
   estado: 'borrador' | 'finalizada'
   habilitada: boolean
   lugar: string | null
+  resolucion: 'res1732' | 'res3100'
   servicio_res1732: { nombre: string } | null
+  servicio_res3100: { nombre: string } | null
   usuario: { nombre: string } | null
   sede: { nombre: string } | null
+}
+
+const RESOLUCION_LABEL: Record<Fila['resolucion'], string> = { res1732: 'Res. 1732', res3100: 'Res. 3100' }
+function nombreServicio(f: Fila) {
+  return (f.resolucion === 'res3100' ? f.servicio_res3100 : f.servicio_res1732)?.nombre ?? '—'
 }
 
 export default function Historial() {
@@ -50,7 +57,7 @@ export default function Historial() {
     const { data } = await supabase
       .from('autoevaluaciones')
       .select(
-        'id, fecha, estado, habilitada, lugar, servicio_res1732:servicios_res1732(nombre), usuario:profiles(nombre), sede:sedes(nombre)',
+        'id, fecha, estado, habilitada, lugar, resolucion, servicio_res1732:servicios_res1732(nombre), servicio_res3100:servicios_res3100(nombre), usuario:profiles(nombre), sede:sedes(nombre)',
       )
       .order('creado_en', { ascending: false })
     setFilas((data as unknown as Fila[]) ?? [])
@@ -123,7 +130,7 @@ export default function Historial() {
 
   const filtradas = filas.filter((f) => {
     if (filtroEstado !== 'todos' && f.estado !== filtroEstado) return false
-    if (busqueda && !f.servicio_res1732?.nombre?.toLowerCase().includes(busqueda.toLowerCase())) return false
+    if (busqueda && !nombreServicio(f).toLowerCase().includes(busqueda.toLowerCase())) return false
     return true
   })
 
@@ -163,6 +170,7 @@ export default function Historial() {
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
                   <th className="py-2 pr-4">Fecha</th>
+                  <th className="py-2 pr-4">Resolución</th>
                   <th className="py-2 pr-4">Servicio</th>
                   <th className="py-2 pr-4">Sede</th>
                   <th className="py-2 pr-4">Usuario</th>
@@ -177,11 +185,14 @@ export default function Historial() {
                     <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
                       {f.fecha}
                     </td>
+                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
+                      <Badge tono="info">{RESOLUCION_LABEL[f.resolucion]}</Badge>
+                    </td>
                     <td
                       className="cursor-pointer py-2 pr-4 font-medium text-slate-700"
                       onClick={() => navigate(`/nueva/${f.id}`)}
                     >
-                      {f.servicio_res1732?.nombre ?? '—'}
+                      {nombreServicio(f)}
                     </td>
                     <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
                       {f.sede?.nombre ?? '—'}
@@ -252,7 +263,7 @@ export default function Historial() {
 
       <Modal open={!!habilitando} onClose={() => setHabilitando(null)} titulo="Habilitar auto-evaluación" ancho="max-w-lg">
         <p className="mb-4 text-sm text-slate-600">
-          Auto-evaluación de <strong>{habilitando?.servicio_res1732?.nombre}</strong> del {habilitando?.fecha}. Todas
+          Auto-evaluación de <strong>{habilitando && nombreServicio(habilitando)}</strong> del {habilitando?.fecha}. Todas
           sus preguntas ya están diligenciadas (auto-evaluación finalizada).
         </p>
         <div className="flex flex-col gap-3">
@@ -335,7 +346,7 @@ export default function Historial() {
 
       <Modal open={!!eliminando} onClose={() => setEliminando(null)} titulo="Eliminar auto-evaluación">
         <p className="mb-4 text-sm text-slate-600">
-          ¿Eliminar la auto-evaluación de <strong>{eliminando?.servicio_res1732?.nombre}</strong> del{' '}
+          ¿Eliminar la auto-evaluación de <strong>{eliminando && nombreServicio(eliminando)}</strong> del{' '}
           {eliminando?.fecha}? Se borrarán también sus respuestas y compromisos de plan de acción. Esta acción no se
           puede deshacer.
         </p>

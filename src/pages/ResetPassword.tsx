@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Boton } from '../components/ui/ui'
@@ -9,6 +9,31 @@ export default function ResetPassword() {
   const [confirmar, setConfirmar] = useState('')
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [listo, setListo] = useState(false)
+
+  // Con HashRouter, redirectTo ya trae un "#/reset" propio y Supabase le pega
+  // sus tokens al mismo fragmento (".../#/reset#access_token=...&type=recovery"),
+  // así que detectSessionInUrl no siempre arma la sesión sola. Extraemos los
+  // tokens a mano y llamamos setSession antes de habilitar el formulario.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) return setListo(true)
+      const href = window.location.href
+      const at = href.match(/[#&?]access_token=([^&]+)/)?.[1]
+      const rt = href.match(/[#&?]refresh_token=([^&]+)/)?.[1]
+      if (!at || !rt) {
+        setError('El enlace expiró o no es válido. Solicita uno nuevo desde "¿Olvidaste tu contraseña?".')
+        return
+      }
+      supabase.auth
+        .setSession({ access_token: decodeURIComponent(at), refresh_token: decodeURIComponent(rt) })
+        .then(({ error }) =>
+          error
+            ? setError('El enlace expiró o no es válido. Solicita uno nuevo desde "¿Olvidaste tu contraseña?".')
+            : setListo(true)
+        )
+    })
+  }, [])
 
   async function guardar(e: FormEvent) {
     e.preventDefault()
@@ -73,7 +98,7 @@ export default function ResetPassword() {
             {error && (
               <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
             )}
-            <Boton type="submit" disabled={enviando} className="w-full">
+            <Boton type="submit" disabled={enviando || !listo} className="w-full">
               {enviando ? 'Guardando…' : 'Guardar contraseña'}
             </Boton>
           </form>

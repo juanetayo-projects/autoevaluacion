@@ -9,13 +9,18 @@ import { Boton, Card, Modal, PageHeader, Spinner } from '../components/ui/ui'
 type Empresa = { id: number; nombre: string }
 type Sede = { id: number; nombre: string; empresa_id: number }
 type Periodicidad = { id: number; nombre: string }
-type ServicioRes1732 = {
+// Catálogo de Servicios, normalizado entre resoluciones: cada resolución
+// vive en sus propias tablas (servicios_res1732/servicios_res3100, con sus
+// columnas grupo_res1732_id/grupo_res3100_id) — se seleccionan con alias
+// (`grupo_id:...`, `grupo:...(nombre)`) para que el resto del componente no
+// necesite saber en cuál resolución está trabajando.
+type ServicioCatalogo = {
   id: number
   nombre: string
   descripcion: string | null
   estructura: string | null
-  grupo_res1732_id: number
-  grupo_res1732: { nombre: string } | null
+  grupo_id: number
+  grupo: { nombre: string } | null
 }
 type Criterio = {
   id: number
@@ -81,12 +86,71 @@ function filtroIn(columna: string, valores: string[]) {
   return `${columna}.in.(${citados})`
 }
 
-let universalIdCache: number | null = null
-async function obtenerServicioUniversalId() {
-  if (universalIdCache) return universalIdCache
-  const { data } = await supabase.from('servicios_res1732').select('id').eq('numeral', '5').single()
-  universalIdCache = data?.id ?? null
-  return universalIdCache
+// Catálogo independiente por resolución (pedido 2026-09-01): mismas tablas
+// paralelas que usa Catalogos.tsx para Res.1732 (grupos_res*/servicios_res*/
+// criterios_res*), agregando Res.3100. El módulo de auto-evaluación pide al
+// usuario con cuál resolución desea trabajar (pantalla `paso === 'resolucion'`)
+// y de ahí en adelante todas las consultas usan esta config para no repetir
+// el switch en cada función.
+type ResolucionKey = 'res1732' | 'res3100'
+type ResolucionConfig = {
+  label: string
+  labelCorto: string
+  tablaServicios: string
+  tablaCriterios: string
+  tablaGrupos: string
+  columnaGrupoId: string
+  // Mismo nombre de columna en servicios_res*/criterios_res* (FK al
+  // servicio) y en autoevaluaciones (cabecera) — coincide por convención en
+  // ambas resoluciones (servicio_res1732_id / servicio_res3100_id).
+  columnaServicioId: string
+  // Columna en autoevaluaciones_respuestas que referencia el criterio de
+  // esta resolución.
+  columnaCriterioRespuesta: string
+  // Numeral del "servicio" universal ("Todo los servicios" en Res.1732 capítulo
+  // 5; el grupo 11.1 completo en Res.3100) — se excluye del desplegable de
+  // Servicio y sus criterios se incluyen siempre, sin filtrar.
+  numeralUniversal: string
+  // Etiqueta corta del "servicio" universal para la UI (Cap. 5 en Res.1732;
+  // el grupo 11.1 completo en Res.3100, que no tiene numeración de capítulo).
+  labelUniversal: string
+  banner?: string
+}
+const RESOLUCIONES: Record<ResolucionKey, ResolucionConfig> = {
+  res1732: {
+    label: 'Resolución 1732 de 2026',
+    labelCorto: 'Res. 1732',
+    tablaServicios: 'servicios_res1732',
+    tablaCriterios: 'criterios_res1732',
+    tablaGrupos: 'grupos_res1732',
+    columnaGrupoId: 'grupo_res1732_id',
+    columnaServicioId: 'servicio_res1732_id',
+    columnaCriterioRespuesta: 'criterio_id',
+    numeralUniversal: '5',
+    labelUniversal: 'Cap. 5',
+    banner: 'images/banner_resolucion1732.webp',
+  },
+  res3100: {
+    label: 'Resolución 3100 de 2019',
+    labelCorto: 'Res. 3100',
+    tablaServicios: 'servicios_res3100',
+    tablaCriterios: 'criterios_res3100',
+    tablaGrupos: 'grupos_res3100',
+    columnaGrupoId: 'grupo_res3100_id',
+    columnaServicioId: 'servicio_res3100_id',
+    columnaCriterioRespuesta: 'criterio_res3100_id',
+    numeralUniversal: '11.1',
+    labelUniversal: 'Grupo 11.1',
+  },
+}
+
+const universalIdCache: Partial<Record<ResolucionKey, number | null>> = {}
+async function obtenerServicioUniversalId(resolucion: ResolucionKey) {
+  if (universalIdCache[resolucion] != null) return universalIdCache[resolucion]!
+  const cfg = RESOLUCIONES[resolucion]
+  const { data } = await supabase.from(cfg.tablaServicios).select('id').eq('numeral', cfg.numeralUniversal).single()
+  universalIdCache[resolucion] = data?.id ?? null
+  return universalIdCache[resolucion]
 }
 
 export default function NuevaAutoevaluacion() {
@@ -95,13 +159,14 @@ export default function NuevaAutoevaluacion() {
   const { perfil } = useAuth()
 
   const [cargandoInicial, setCargandoInicial] = useState(true)
-  const [paso, setPaso] = useState<'cabecera' | 'responder' | 'cierre'>('cabecera')
+  const [paso, setPaso] = useState<'resolucion' | 'cabecera' | 'responder' | 'cierre'>('resolucion')
+  const [resolucion, setResolucion] = useState<ResolucionKey | null>(null)
 
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [sedes, setSedes] = useState<Sede[]>([])
   const [periodicidades, setPeriodicidades] = useState<Periodicidad[]>([])
-  // Servicio = columna G del Excel (39 valores reales, tabla servicios_res1732).
-  const [serviciosRes, setServiciosRes] = useState<ServicioRes1732[]>([])
+  // Servicio = columna G/columna "Servicios" del Excel de cada resolución.
+  const [serviciosRes, setServiciosRes] = useState<ServicioCatalogo[]>([])
 
   const [empresaId, setEmpresaId] = useState<number | null>(null)
   const [sedeId, setSedeId] = useState<number | null>(null)
@@ -135,8 +200,12 @@ export default function NuevaAutoevaluacion() {
   const servicioSeleccionado = serviciosRes.find((s) => s.id === servicioResId)
 
   useEffect(() => {
-    cargarCatalogos()
+    cargarCatalogosBase()
   }, [])
+
+  useEffect(() => {
+    if (resolucion) cargarServicios(resolucion)
+  }, [resolucion])
 
   useEffect(() => {
     if (id) cargarDraftExistente(id)
@@ -144,22 +213,34 @@ export default function NuevaAutoevaluacion() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  async function cargarCatalogos() {
-    const [{ data: emp }, { data: sed }, { data: per }, { data: sr }] = await Promise.all([
+  async function cargarCatalogosBase() {
+    const [{ data: emp }, { data: sed }, { data: per }] = await Promise.all([
       supabase.from('empresas').select('*').order('nombre'),
       supabase.from('sedes').select('*').order('nombre'),
       supabase.from('periodicidades').select('id, nombre').order('nombre'),
-      supabase
-        .from('servicios_res1732')
-        .select('id, nombre, descripcion, estructura, grupo_res1732_id, grupo_res1732:grupos_res1732(nombre)')
-        .neq('numeral', '5')
-        .order('nombre'),
     ])
     setEmpresas((emp as Empresa[]) ?? [])
     setSedes((sed as Sede[]) ?? [])
     setPeriodicidades((per as Periodicidad[]) ?? [])
-    setServiciosRes((sr as unknown as ServicioRes1732[]) ?? [])
     if (emp && emp.length > 0) setEmpresaId(emp[0].id)
+  }
+
+  async function cargarServicios(res: ResolucionKey) {
+    const cfg = RESOLUCIONES[res]
+    const { data: sr } = await supabase
+      .from(cfg.tablaServicios)
+      .select(`id, nombre, descripcion, estructura, grupo_id:${cfg.columnaGrupoId}, grupo:${cfg.tablaGrupos}(nombre)`)
+      .neq('numeral', cfg.numeralUniversal)
+      .order('nombre')
+    setServiciosRes((sr as unknown as ServicioCatalogo[]) ?? [])
+  }
+
+  function seleccionarResolucion(res: ResolucionKey) {
+    setResolucion(res)
+    setServicioResId(null)
+    setModalidadFiltro([])
+    setComplejidadFiltro([])
+    setPaso('cabecera')
   }
 
   async function cargarDraftExistente(autoevalId: string) {
@@ -168,33 +249,47 @@ export default function NuevaAutoevaluacion() {
       setCargandoInicial(false)
       return
     }
+    const res = (cab.resolucion ?? 'res1732') as ResolucionKey
+    const cfg = RESOLUCIONES[res]
+    setResolucion(res)
     setAutoevaluacionId(cab.id)
     setEmpresaId(cab.empresa_id)
     setSedeId(cab.sede_id)
     setPeriodicidadId(cab.periodicidad_id)
     setLugar(cab.lugar ?? '')
     setFecha(cab.fecha)
-    setServicioResId(cab.servicio_res1732_id)
+    setServicioResId(cab[cfg.columnaServicioId])
     setModalidadFiltro(cab.modalidad_filtro ?? [])
     setComplejidadFiltro(cab.complejidad_filtro ?? [])
     setEstado(cab.estado)
 
-    const { data: resp } = await supabase
+    await cargarServicios(res)
+
+    const columnasResp: string = `id, ${cfg.columnaCriterioRespuesta}, respuesta, observacion`
+    const respQuery = await supabase
       .from('autoevaluaciones_respuestas')
-      .select('id, criterio_id, respuesta, observacion')
+      .select(columnasResp)
       .eq('autoevaluacion_id', autoevalId)
+    const resp = (
+      respQuery as unknown as {
+        data: ({ id: number; respuesta: Respuesta; observacion: string | null } & Record<string, unknown>)[] | null
+      }
+    ).data
     const mapa: Record<number, RespuestaLocal> = {}
     for (const r of resp ?? []) {
-      mapa[r.criterio_id] = { respuesta: r.respuesta, observacion: r.observacion ?? '', respuestaId: r.id }
+      const critId = (r as Record<string, unknown>)[cfg.columnaCriterioRespuesta] as number | null
+      if (critId == null) continue
+      mapa[critId] = { respuesta: r.respuesta, observacion: r.observacion ?? '', respuestaId: r.id }
     }
     setRespuestas(mapa)
 
-    await buscarCriterios(cab.servicio_res1732_id, cab.modalidad_filtro ?? [], cab.complejidad_filtro ?? [])
+    await buscarCriterios(res, cab[cfg.columnaServicioId], cab.modalidad_filtro ?? [], cab.complejidad_filtro ?? [])
     setPaso('responder')
     setCargandoInicial(false)
   }
 
   async function alSeleccionarServicio(servicioId: number) {
+    if (!resolucion) return
     setServicioResId(servicioId)
     setModalidadFiltro([])
     setComplejidadFiltro([])
@@ -203,19 +298,21 @@ export default function NuevaAutoevaluacion() {
     // servicio elegido (no de los universales "Todo los servicios") — los
     // universales igual se incluyen siempre al listar criterios (ver
     // buscarCriterios), pero no deben inflar las opciones del desplegable.
+    const cfg = RESOLUCIONES[resolucion]
     const { data } = await supabase
-      .from('criterios_res1732')
+      .from(cfg.tablaCriterios)
       .select('modalidad, complejidad')
-      .eq('servicio_res1732_id', servicioId)
+      .eq(cfg.columnaServicioId, servicioId)
     const mods = Array.from(new Set((data ?? []).map((r) => r.modalidad).filter(Boolean))) as string[]
     const comps = Array.from(new Set((data ?? []).map((r) => r.complejidad).filter(Boolean))) as string[]
     setModalidades(mods.sort())
     setComplejidades(comps.sort())
   }
 
-  async function buscarCriterios(servicioId: number, modalidad: string[], complejidad: string[]) {
+  async function buscarCriterios(res: ResolucionKey, servicioId: number, modalidad: string[], complejidad: string[]) {
     setCargandoCriterios(true)
-    const universalId = await obtenerServicioUniversalId()
+    const cfg = RESOLUCIONES[res]
+    const universalId = await obtenerServicioUniversalId(res)
     const columnas = 'id, numero, item, criterio, estandar, complejidad, modalidad, numeral_servicio'
 
     // Propios del servicio: el filtro de Modalidad/Complejidad aplica (ahora
@@ -223,7 +320,7 @@ export default function NuevaAutoevaluacion() {
     // (confirmado con el cliente). Los valores se citan entre comillas
     // porque varios de Complejidad traen comas propias (ej. "Baja, Mediana
     // y Alta"), que romperían el separador de in.(...) sin comillas.
-    let propios = supabase.from('criterios_res1732').select(columnas).eq('servicio_res1732_id', servicioId)
+    let propios = supabase.from(cfg.tablaCriterios).select(columnas).eq(cfg.columnaServicioId, servicioId)
     if (modalidad.length > 0) {
       propios = propios.or(`${filtroIn('modalidad', modalidad)},modalidad.is.null`)
     }
@@ -234,7 +331,7 @@ export default function NuevaAutoevaluacion() {
     // Universales ("Todo los servicios"): se incluyen SIEMPRE completos,
     // sin filtrar por Modalidad/Complejidad (confirmado con el cliente).
     const universales = universalId
-      ? supabase.from('criterios_res1732').select(columnas).eq('servicio_res1732_id', universalId)
+      ? supabase.from(cfg.tablaCriterios).select(columnas).eq(cfg.columnaServicioId, universalId)
       : null
 
     const [{ data: dataPropios }, universalesResp] = await Promise.all([
@@ -252,22 +349,27 @@ export default function NuevaAutoevaluacion() {
   }
 
   async function iniciar() {
-    if (!empresaId || !sedeId || !periodicidadId || !servicioResId || !perfil) return
+    if (!resolucion || !empresaId || !sedeId || !periodicidadId || !servicioResId || !perfil) return
     if (autoevaluacionId) {
-      await buscarCriterios(servicioResId, modalidadFiltro, complejidadFiltro)
+      await buscarCriterios(resolucion, servicioResId, modalidadFiltro, complejidadFiltro)
       setPaso('responder')
       return
     }
 
     // Antes de crear una nueva, verificar si ya existe una auto-evaluación
-    // con la misma Empresa+Sede+Servicio (borrador o finalizada).
+    // con la misma Empresa+Sede+Servicio+Resolución (borrador o finalizada).
+    // Se filtra también por resolución porque los IDs de servicio son
+    // secuencias independientes por tabla (un mismo número puede existir en
+    // servicios_res1732 y en servicios_res3100 sin ser el mismo servicio).
+    const cfg = RESOLUCIONES[resolucion]
     setVerificandoDuplicado(true)
     const { data: existente } = await supabase
       .from('autoevaluaciones')
       .select('id, estado, fecha')
       .eq('empresa_id', empresaId)
       .eq('sede_id', sedeId)
-      .eq('servicio_res1732_id', servicioResId)
+      .eq('resolucion', resolucion)
+      .eq(cfg.columnaServicioId, servicioResId)
       .order('creado_en', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -282,7 +384,8 @@ export default function NuevaAutoevaluacion() {
   }
 
   async function crearAutoevaluacion() {
-    if (!empresaId || !sedeId || !periodicidadId || !servicioResId || !perfil) return
+    if (!resolucion || !empresaId || !sedeId || !periodicidadId || !servicioResId || !perfil) return
+    const cfg = RESOLUCIONES[resolucion]
     const { data, error } = await supabase
       .from('autoevaluaciones')
       .insert({
@@ -292,7 +395,8 @@ export default function NuevaAutoevaluacion() {
         lugar,
         fecha,
         usuario_id: perfil.id,
-        servicio_res1732_id: servicioResId,
+        resolucion,
+        [cfg.columnaServicioId]: servicioResId,
         modalidad_filtro: modalidadFiltro.length ? modalidadFiltro : null,
         complejidad_filtro: complejidadFiltro.length ? complejidadFiltro : null,
         estado: 'borrador',
@@ -301,7 +405,7 @@ export default function NuevaAutoevaluacion() {
       .single()
     if (error || !data) return
     setAutoevaluacionId(data.id)
-    await buscarCriterios(servicioResId, modalidadFiltro, complejidadFiltro)
+    await buscarCriterios(resolucion, servicioResId, modalidadFiltro, complejidadFiltro)
     setPaso('responder')
   }
 
@@ -313,14 +417,15 @@ export default function NuevaAutoevaluacion() {
   }
 
   async function responder(criterioId: number, respuesta: Respuesta) {
-    if (!autoevaluacionId) return
+    if (!autoevaluacionId || !resolucion) return
+    const cfg = RESOLUCIONES[resolucion]
     setGuardando(criterioId)
     const observacion = respuestas[criterioId]?.observacion ?? ''
     const { data, error } = await supabase
       .from('autoevaluaciones_respuestas')
       .upsert(
-        { autoevaluacion_id: autoevaluacionId, criterio_id: criterioId, respuesta, observacion },
-        { onConflict: 'autoevaluacion_id,criterio_id' },
+        { autoevaluacion_id: autoevaluacionId, [cfg.columnaCriterioRespuesta]: criterioId, respuesta, observacion },
+        { onConflict: `autoevaluacion_id,${cfg.columnaCriterioRespuesta}` },
       )
       .select()
       .single()
@@ -341,7 +446,8 @@ export default function NuevaAutoevaluacion() {
   // respuesta propia (nunca sobrescribe una respuesta ya dada a mano).
   async function replicarRespuestaEnEstandar(criterioId: number, respuesta: Respuesta) {
     const criterio = criterios.find((c) => c.id === criterioId)
-    if (!criterio || !autoevaluacionId) return
+    if (!criterio || !autoevaluacionId || !resolucion) return
+    const cfg = RESOLUCIONES[resolucion]
     const grupo = grupos.find((g) => g.clave === criterio.estandar)
     if (!grupo || grupo.items[0]?.id !== criterioId) return
 
@@ -350,19 +456,20 @@ export default function NuevaAutoevaluacion() {
 
     const filas = pendientes.map((c) => ({
       autoevaluacion_id: autoevaluacionId,
-      criterio_id: c.id,
+      [cfg.columnaCriterioRespuesta]: c.id,
       respuesta,
       observacion: '',
     }))
     const { data, error } = await supabase
       .from('autoevaluaciones_respuestas')
-      .upsert(filas, { onConflict: 'autoevaluacion_id,criterio_id' })
+      .upsert(filas, { onConflict: `autoevaluacion_id,${cfg.columnaCriterioRespuesta}` })
       .select()
     if (error || !data) return
     setRespuestas((prev) => {
       const siguiente = { ...prev }
       for (const fila of data) {
-        siguiente[fila.criterio_id] = { respuesta: fila.respuesta, observacion: fila.observacion ?? '', respuestaId: fila.id }
+        const critId = (fila as Record<string, unknown>)[cfg.columnaCriterioRespuesta] as number
+        siguiente[critId] = { respuesta: fila.respuesta, observacion: fila.observacion ?? '', respuestaId: fila.id }
       }
       return siguiente
     })
@@ -373,12 +480,13 @@ export default function NuevaAutoevaluacion() {
       ...prev,
       [criterioId]: { ...prev[criterioId], observacion, respuesta: prev[criterioId]?.respuesta },
     }))
-    if (!autoevaluacionId || !respuestas[criterioId]?.respuesta) return
+    if (!autoevaluacionId || !resolucion || !respuestas[criterioId]?.respuesta) return
+    const cfg = RESOLUCIONES[resolucion]
     await supabase
       .from('autoevaluaciones_respuestas')
       .update({ observacion })
       .eq('autoevaluacion_id', autoevaluacionId)
-      .eq('criterio_id', criterioId)
+      .eq(cfg.columnaCriterioRespuesta, criterioId)
   }
 
   const avance = useMemo(() => {
@@ -565,18 +673,62 @@ export default function NuevaAutoevaluacion() {
     )
   }
 
-  if (paso === 'cabecera') {
+  if (paso === 'resolucion') {
     return (
       <div>
         <PageHeader titulo="Nueva auto-evaluación" />
         <Card className="mx-auto max-w-2xl p-4">
-          <div className="mb-2">
-            <img
-              src={`${import.meta.env.BASE_URL}images/banner_resolucion1732.webp`}
-              alt="Resolución 1732 de 2026 — CAC Santa Bárbara"
-              className="w-full rounded-lg"
-            />
+          <p className="mb-4 text-sm text-slate-600">¿Con cuál resolución deseas trabajar esta auto-evaluación?</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(Object.keys(RESOLUCIONES) as ResolucionKey[]).map((key) => {
+              const cfg = RESOLUCIONES[key]
+              return (
+                <button
+                  key={key}
+                  onClick={() => seleccionarResolucion(key)}
+                  className="flex flex-col items-start gap-1 rounded-xl border-2 border-slate-200 bg-white p-4 text-left transition-colors hover:border-azul hover:bg-sky-50"
+                >
+                  <span className="text-base font-bold text-azul">{cfg.labelCorto}</span>
+                  <span className="text-sm text-slate-600">{cfg.label}</span>
+                </button>
+              )
+            })}
           </div>
+          <div className="mt-4 flex justify-end">
+            <Boton variante="secundario" onClick={() => navigate('/')}>
+              Cancelar
+            </Boton>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  if (paso === 'cabecera') {
+    const cfgSeleccionada = resolucion ? RESOLUCIONES[resolucion] : null
+    return (
+      <div>
+        <PageHeader titulo={`Nueva auto-evaluación — ${cfgSeleccionada?.labelCorto ?? ''}`} />
+        <Card className="mx-auto max-w-2xl p-4">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            {cfgSeleccionada?.banner ? (
+              <img
+                src={`${import.meta.env.BASE_URL}${cfgSeleccionada.banner}`}
+                alt={`${cfgSeleccionada.label} — CAC Santa Bárbara`}
+                className="w-full rounded-lg"
+              />
+            ) : (
+              <div className="w-full rounded-lg bg-azul/5 px-4 py-3 text-sm font-semibold text-azul">
+                {cfgSeleccionada?.label}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setPaso('resolucion')}
+            className="mb-2 text-xs font-medium text-azul2 hover:underline"
+          >
+            ‹ Cambiar resolución
+          </button>
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <Campo label="Empresa">
               <select
@@ -638,7 +790,7 @@ export default function NuevaAutoevaluacion() {
             {servicioSeleccionado && (
               <Campo label="Grupo" className="sm:col-span-2">
                 <div className="campo bg-slate-50 py-1.5 text-slate-500">
-                  {servicioSeleccionado.grupo_res1732?.nombre ?? '—'}
+                  {servicioSeleccionado.grupo?.nombre ?? '—'}
                 </div>
               </Campo>
             )}
@@ -971,6 +1123,7 @@ export default function NuevaAutoevaluacion() {
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                       <FiltroServicio
                         valor={filtroServicio}
+                        labelUniversal={resolucion ? RESOLUCIONES[resolucion].labelUniversal : ''}
                         onCambiar={(f) => setFiltroServicioGrupo((prev) => ({ ...prev, [g.clave]: f }))}
                       />
                       <FiltroRespuestas
@@ -995,7 +1148,9 @@ export default function NuevaAutoevaluacion() {
                               {sub.numeral}
                             </span>
                             <span className={`text-[11px] font-semibold ${colorSub.texto}`}>
-                              {sub.esUniversal ? 'Cap. 5 · Todo los servicios' : `Propio de ${servicioSeleccionado?.nombre ?? 'este servicio'}`}
+                              {sub.esUniversal
+                                ? `${resolucion ? RESOLUCIONES[resolucion].labelUniversal : ''} · Todo los servicios`
+                                : `Propio de ${servicioSeleccionado?.nombre ?? 'este servicio'}`}
                             </span>
                             <span className="text-[11px] font-medium text-slate-400">
                               {itemsFiltrados.length} de {sub.items.length}
@@ -1036,14 +1191,16 @@ export default function NuevaAutoevaluacion() {
 
 function FiltroServicio({
   valor,
+  labelUniversal,
   onCambiar,
 }: {
   valor: FiltroServicioValor
+  labelUniversal: string
   onCambiar: (f: FiltroServicioValor) => void
 }) {
   const opciones: { valor: FiltroServicioValor; label: string; activo: string }[] = [
     { valor: 'todos', label: 'Todos', activo: 'bg-slate-700 text-white' },
-    { valor: 'universal', label: 'Cap. 5 · Todo los servicios', activo: COLOR_UNIVERSAL.badge + ' text-white' },
+    { valor: 'universal', label: `${labelUniversal} · Todo los servicios`, activo: COLOR_UNIVERSAL.badge + ' text-white' },
     { valor: 'propio', label: 'Propio del servicio', activo: COLOR_PROPIO.badge + ' text-white' },
   ]
   return (
