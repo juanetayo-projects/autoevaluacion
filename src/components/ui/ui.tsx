@@ -126,6 +126,45 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
   )
 }
 
+// --- Selector de opción múltiple por chips (punto 8 del pedido 2026-08-28) —
+// reemplaza el <select multiple> nativo (feo y poco usable) para filtros de
+// Modalidad/Complejidad y similares. Sin selección = "Todas". ---
+export function SelectorMultiple({
+  opciones,
+  seleccionados,
+  onCambiar,
+}: {
+  opciones: string[]
+  seleccionados: string[]
+  onCambiar: (valores: string[]) => void
+}) {
+  function alternar(valor: string) {
+    onCambiar(seleccionados.includes(valor) ? seleccionados.filter((v) => v !== valor) : [...seleccionados, valor])
+  }
+  return (
+    <div className="campo flex min-h-[2.25rem] flex-wrap items-center gap-1.5 py-1.5">
+      {opciones.length === 0 ? (
+        <span className="text-slate-400">Todas</span>
+      ) : (
+        opciones.map((o) => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => alternar(o)}
+            className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+              seleccionados.includes(o)
+                ? 'border-azul bg-azul text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {o}
+          </button>
+        ))
+      )}
+    </div>
+  )
+}
+
 // --- Spinner de carga ---
 export function Spinner({ className = '' }: { className?: string }) {
   return (

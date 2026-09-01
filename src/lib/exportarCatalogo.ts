@@ -81,10 +81,12 @@ export async function exportarServiciosExcel(params: {
   filtros: [string, string][]
   servicios: ServicioExport[]
   logoUrl?: string
+  resolucionLabel?: string
 }) {
+  const resolucionLabel = params.resolucionLabel ?? 'Res.1732'
   const { wb, ws, fila: filaInicial } = await crearLibro(
-    'Catálogo de Servicios Res.1732',
-    'Columna G del Excel fuente — 39 servicios genéricos',
+    `Catálogo de Servicios ${resolucionLabel}`,
+    `Catálogo de Servicios del Excel fuente — ${params.servicios.length} servicios`,
     params.filtros,
     params.logoUrl,
   )
@@ -141,7 +143,7 @@ export async function exportarServiciosExcel(params: {
   }
 
   const buf = await wb.xlsx.writeBuffer()
-  descargar(buf, `Servicios_Res1732_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  descargar(buf, `Servicios_${resolucionLabel.replace('.', '')}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 // ============================================================
@@ -177,10 +179,12 @@ export async function exportarCriteriosExcel(params: {
   filtros: [string, string][]
   criterios: CriterioExport[]
   logoUrl?: string
+  resolucionLabel?: string
 }) {
+  const resolucionLabel = params.resolucionLabel ?? 'Res.1732'
   const { wb, ws, fila: filaInicial } = await crearLibro(
-    'Catálogo de Criterios Res.1732',
-    `Hoja "AUTOEVALUACION 2026" del Excel fuente — ${params.criterios.length.toLocaleString()} registros`,
+    `Catálogo de Criterios ${resolucionLabel}`,
+    `Excel fuente — ${params.criterios.length.toLocaleString()} registros`,
     params.filtros,
     params.logoUrl,
   )
@@ -240,7 +244,7 @@ export async function exportarCriteriosExcel(params: {
   }
 
   const buf = await wb.xlsx.writeBuffer()
-  descargar(buf, `Criterios_Res1732_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  descargar(buf, `Criterios_${resolucionLabel.replace('.', '')}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 // Agrupa preservando el orden de aparición (los criterios ya vienen

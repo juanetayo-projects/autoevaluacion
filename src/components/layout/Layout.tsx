@@ -31,7 +31,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             alt="CAC Santa Bárbara"
             className="h-10"
           />
-          <span className="text-sm font-semibold leading-tight text-white">Resolución 1732</span>
+          <span className="text-sm font-semibold leading-tight text-white">Habilitaciones</span>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1">

@@ -1,25 +1,32 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Boton, Card, FilterBar, Modal, Spinner } from '../../components/ui/ui'
+import { Boton, Card, FilterBar, Modal, SelectorMultiple, Spinner } from '../../components/ui/ui'
 import { exportarCriteriosExcel, exportarServiciosExcel } from '../../lib/exportarCatalogo'
+import { RESOLUCIONES, type ResolucionKey } from '../../domain/resoluciones'
 
 const LOGO_URL = `${import.meta.env.BASE_URL}images/logo_cacsb2.png`
 
-type Tab = 'servicios' | 'criterios' | 'empresas' | 'sedes' | 'periodicidades'
+type Tab = 'servicios1732' | 'criterios1732' | 'servicios3100' | 'criterios3100' | 'empresas' | 'sedes' | 'periodicidades'
 
 export default function Catalogos() {
-  const [tab, setTab] = useState<Tab>('servicios')
+  const [tab, setTab] = useState<Tab>('servicios1732')
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
         <h1 className="text-lg font-semibold text-azul">Catálogos</h1>
         <div className="flex flex-wrap gap-1">
-          <BotonTab activo={tab === 'servicios'} onClick={() => setTab('servicios')}>
-            Servicios (columna G)
+          <BotonTab activo={tab === 'servicios1732'} onClick={() => setTab('servicios1732')}>
+            Servicios Res.1732
           </BotonTab>
-          <BotonTab activo={tab === 'criterios'} onClick={() => setTab('criterios')}>
+          <BotonTab activo={tab === 'criterios1732'} onClick={() => setTab('criterios1732')}>
             Criterios Res.1732
+          </BotonTab>
+          <BotonTab activo={tab === 'servicios3100'} onClick={() => setTab('servicios3100')}>
+            Servicios Res.3100
+          </BotonTab>
+          <BotonTab activo={tab === 'criterios3100'} onClick={() => setTab('criterios3100')}>
+            Criterios Res.3100
           </BotonTab>
           <BotonTab activo={tab === 'empresas'} onClick={() => setTab('empresas')}>
             Empresas
@@ -33,8 +40,10 @@ export default function Catalogos() {
         </div>
       </div>
 
-      {tab === 'servicios' && <ServiciosRes1732Tab />}
-      {tab === 'criterios' && <CriteriosTab />}
+      {tab === 'servicios1732' && <ServiciosCatalogoTab resolucion="res1732" />}
+      {tab === 'criterios1732' && <CriteriosCatalogoTab resolucion="res1732" />}
+      {tab === 'servicios3100' && <ServiciosCatalogoTab resolucion="res3100" />}
+      {tab === 'criterios3100' && <CriteriosCatalogoTab resolucion="res3100" />}
       {tab === 'empresas' && <EmpresasTab />}
       {tab === 'sedes' && <SedesTab />}
       {tab === 'periodicidades' && <PeriodicidadesTab />}
@@ -83,50 +92,55 @@ function BotonTab({
 }
 
 // ============================================================
-// Servicios Res.1732 — los 39 valores reales de la columna G
+// Servicios — catálogo genérico de la resolución (39 valores reales de la
+// columna G en Res.1732; catálogo equivalente de servicios en Res.3100).
+// Parametrizado por `resolucion` (pedido 2026-09-01, punto 3) en vez de
+// duplicar el componente por cada resolución.
 // ============================================================
 
 type Grupo = { id: number; nombre: string }
-type ServicioRes1732 = {
+type ServicioCatalogo = {
   id: number
   numeral: string
   nombre: string
   descripcion: string | null
   estructura: string | null
-  grupo_res1732_id: number
-  grupo_res1732: { nombre: string } | null
+  grupo_id: number
+  grupo: { nombre: string } | null
 }
 
-function ServiciosRes1732Tab() {
-  const [servicios, setServicios] = useState<ServicioRes1732[]>([])
+function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
+  const cfg = RESOLUCIONES[resolucion]
+  const [servicios, setServicios] = useState<ServicioCatalogo[]>([])
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [cargando, setCargando] = useState(true)
-  const [editando, setEditando] = useState<ServicioRes1732 | null>(null)
+  const [editando, setEditando] = useState<ServicioCatalogo | null>(null)
   const [busqueda, setBusqueda] = useState('')
   const [grupoFiltro, setGrupoFiltro] = useState<number | ''>('')
   const [exportando, setExportando] = useState(false)
 
   useEffect(() => {
     cargar()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolucion])
 
   async function cargar() {
     setCargando(true)
     const [{ data: sr }, { data: gr }] = await Promise.all([
       supabase
-        .from('servicios_res1732')
-        .select('id, numeral, nombre, descripcion, estructura, grupo_res1732_id, grupo_res1732:grupos_res1732(nombre)')
-        .neq('numeral', '5')
+        .from(cfg.tablaServicios)
+        .select(`id, numeral, nombre, descripcion, estructura, grupo_id:${cfg.columnaGrupoId}, grupo:${cfg.tablaGrupos}(nombre)`)
+        .neq('numeral', cfg.numeralUniversal)
         .order('nombre'),
-      supabase.from('grupos_res1732').select('id, nombre').neq('numeral', '5').order('nombre'),
+      supabase.from(cfg.tablaGrupos).select('id, nombre').neq('numeral', cfg.numeralUniversal).order('nombre'),
     ])
-    setServicios((sr as unknown as ServicioRes1732[]) ?? [])
+    setServicios((sr as unknown as ServicioCatalogo[]) ?? [])
     setGrupos((gr as Grupo[]) ?? [])
     setCargando(false)
   }
 
   const filtrados = servicios.filter((s) => {
-    if (grupoFiltro && s.grupo_res1732_id !== grupoFiltro) return false
+    if (grupoFiltro && s.grupo_id !== grupoFiltro) return false
     if (busqueda && !s.nombre.toLowerCase().includes(busqueda.toLowerCase())) return false
     return true
   })
@@ -141,11 +155,12 @@ function ServiciosRes1732Tab() {
         ],
         servicios: filtrados.map((s) => ({
           nombre: s.nombre,
-          grupo: s.grupo_res1732?.nombre ?? '—',
+          grupo: s.grupo?.nombre ?? '—',
           descripcion: s.descripcion ?? '',
           estructura: s.estructura ?? '',
         })),
         logoUrl: LOGO_URL,
+        resolucionLabel: cfg.labelCorto,
       })
     } finally {
       setExportando(false)
@@ -155,9 +170,9 @@ function ServiciosRes1732Tab() {
   return (
     <Card>
       <p className="mb-4 text-xs text-slate-500">
-        Estos son los 39 servicios genéricos de la Res.1732 (columna "Servicio" del Excel, hoja "Servicios"). Este es
-        el catálogo que alimenta el selector "Servicio" al crear una auto-evaluación — no tiene Sede asociada, la
-        Sede solo se captura al iniciar la auto-evaluación.
+        Catálogo de servicios de la {cfg.label} (tabla {cfg.tablaServicios}). Este es el catálogo que alimenta el
+        selector "Servicio" al crear una auto-evaluación con esta resolución — no tiene Sede asociada, la Sede solo
+        se captura al iniciar la auto-evaluación.
       </p>
 
       <FilterBar>
@@ -214,7 +229,7 @@ function ServiciosRes1732Tab() {
               {filtrados.map((s) => (
                 <tr key={s.id}>
                   <td className="py-2 pr-4 font-medium text-slate-700">{s.nombre}</td>
-                  <td className="py-2 pr-4">{s.grupo_res1732?.nombre ?? '—'}</td>
+                  <td className="py-2 pr-4">{s.grupo?.nombre ?? '—'}</td>
                   <td className="max-w-md truncate py-2 pr-4 text-slate-500">{s.descripcion ?? '—'}</td>
                   <td className="py-2 pr-4 text-right">
                     <button onClick={() => setEditando(s)} className="text-xs font-medium text-azul2 hover:underline">
@@ -228,7 +243,8 @@ function ServiciosRes1732Tab() {
         </div>
       )}
 
-      <ModalEditarServicioRes1732
+      <ModalEditarServicioCatalogo
+        resolucion={resolucion}
         registro={editando}
         grupos={grupos}
         onClose={() => setEditando(null)}
@@ -238,17 +254,20 @@ function ServiciosRes1732Tab() {
   )
 }
 
-function ModalEditarServicioRes1732({
+function ModalEditarServicioCatalogo({
+  resolucion,
   registro,
   grupos,
   onClose,
   onGuardado,
 }: {
-  registro: ServicioRes1732 | null
+  resolucion: ResolucionKey
+  registro: ServicioCatalogo | null
   grupos: Grupo[]
   onClose: () => void
   onGuardado: () => void
 }) {
+  const cfg = RESOLUCIONES[resolucion]
   const [nombre, setNombre] = useState('')
   const [grupoId, setGrupoId] = useState<number | null>(null)
   const [descripcion, setDescripcion] = useState('')
@@ -258,7 +277,7 @@ function ModalEditarServicioRes1732({
   useEffect(() => {
     if (registro) {
       setNombre(registro.nombre)
-      setGrupoId(registro.grupo_res1732_id)
+      setGrupoId(registro.grupo_id)
       setDescripcion(registro.descripcion ?? '')
       setEstructura(registro.estructura ?? '')
     }
@@ -268,8 +287,8 @@ function ModalEditarServicioRes1732({
     if (!registro || !nombre || !grupoId) return
     setGuardando(true)
     await supabase
-      .from('servicios_res1732')
-      .update({ nombre, grupo_res1732_id: grupoId, descripcion: descripcion || null, estructura: estructura || null })
+      .from(cfg.tablaServicios)
+      .update({ nombre, [cfg.columnaGrupoId]: grupoId, descripcion: descripcion || null, estructura: estructura || null })
       .eq('id', registro.id)
     setGuardando(false)
     onGuardado()
@@ -277,7 +296,7 @@ function ModalEditarServicioRes1732({
   }
 
   return (
-    <Modal open={!!registro} onClose={onClose} titulo="Editar servicio (columna G)">
+    <Modal open={!!registro} onClose={onClose} titulo={`Editar servicio (${cfg.labelCorto})`}>
       <div className="flex flex-col gap-4">
         <label className="text-sm">
           <span className="mb-1 block font-medium text-slate-600">Servicio</span>
@@ -315,31 +334,37 @@ function ModalEditarServicioRes1732({
 }
 
 // ============================================================
-// Criterios Res.1732 — 3,557 filas, columnas C:L del Excel
+// Criterios — tabla maestra de criterios de la resolución (3.557 filas en
+// Res.1732, columnas C:L del Excel; 3.814 filas en Res.3100). Parametrizado
+// por `resolucion` (pedido 2026-09-01, punto 3), igual que ServiciosCatalogoTab.
+// El filtro de Complejidad/Modalidad usa SelectorMultiple (chips) en vez del
+// <select multiple> nativo — el nativo se veía roto/truncado (punto 2 del
+// mismo pedido).
 // ============================================================
 
-type Criterio = {
+type CriterioCatalogo = {
   id: number
   llave: string
   numero: number
   item: string | null
   pagina: string | null
   criterio: string
-  grupo_res1732_id: number
-  servicio_res1732_id: number
+  grupo_id: number
+  servicio_id: number
   numeral_grupo: string
   numeral_servicio: string
   estandar: string
   complejidad: string
   modalidad: string | null
-  grupo_res1732: { nombre: string } | null
-  servicio_res1732: { nombre: string } | null
+  grupo: { nombre: string } | null
+  servicio: { nombre: string } | null
 }
 
 const POR_PAGINA = 25
 
-function CriteriosTab() {
-  const [criterios, setCriterios] = useState<Criterio[]>([])
+function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
+  const cfg = RESOLUCIONES[resolucion]
+  const [criterios, setCriterios] = useState<CriterioCatalogo[]>([])
   const [total, setTotal] = useState(0)
   const [pagina, setPagina] = useState(0)
   const [busqueda, setBusqueda] = useState('')
@@ -349,7 +374,7 @@ function CriteriosTab() {
   // Multi-selección (pedido 2026-08-28, punto 8): arrays vacíos = "Todas".
   const [complejidadFiltro, setComplejidadFiltro] = useState<string[]>([])
   const [modalidadFiltro, setModalidadFiltro] = useState<string[]>([])
-  const [serviciosFull, setServiciosFull] = useState<{ id: number; nombre: string; grupo_res1732_id: number }[]>([])
+  const [serviciosFull, setServiciosFull] = useState<{ id: number; nombre: string; grupo_id: number }[]>([])
   const [grupos, setGrupos] = useState<Grupo[]>([])
   // Globales, sin filtrar — alimentan el modal de edición (ahí sí se puede
   // asignar cualquier Estándar/Complejidad/Modalidad a un criterio nuevo).
@@ -364,26 +389,27 @@ function CriteriosTab() {
   const [opcionesModalidadFiltro, setOpcionesModalidadFiltro] = useState<string[]>([])
   const [cargando, setCargando] = useState(true)
   const [exportando, setExportando] = useState(false)
-  const [editando, setEditando] = useState<Criterio | 'nuevo' | null>(null)
-  const [eliminando, setEliminando] = useState<Criterio | null>(null)
+  const [editando, setEditando] = useState<CriterioCatalogo | 'nuevo' | null>(null)
+  const [eliminando, setEliminando] = useState<CriterioCatalogo | null>(null)
 
-  const servicios = grupoFiltro ? serviciosFull.filter((s) => s.grupo_res1732_id === grupoFiltro) : serviciosFull
+  const servicios = grupoFiltro ? serviciosFull.filter((s) => s.grupo_id === grupoFiltro) : serviciosFull
 
   useEffect(() => {
+    const columnasServiciosFull: string = `id, nombre, grupo_id:${cfg.columnaGrupoId}`
     supabase
-      .from('servicios_res1732')
-      .select('id, nombre, grupo_res1732_id')
+      .from(cfg.tablaServicios)
+      .select(columnasServiciosFull)
       .order('nombre')
-      .then(({ data }) => setServiciosFull(data ?? []))
+      .then(({ data }) => setServiciosFull((data as unknown as { id: number; nombre: string; grupo_id: number }[]) ?? []))
     supabase
-      .from('grupos_res1732')
+      .from(cfg.tablaGrupos)
       .select('id, nombre')
       .order('nombre')
       .then(({ data }) => setGrupos((data as Grupo[]) ?? []))
     // Opciones globales (modal): valores reales ya existentes en la tabla,
     // para no permitir texto libre suelto.
     supabase
-      .from('criterios_res1732')
+      .from(cfg.tablaCriterios)
       .select('estandar, complejidad, modalidad')
       .then(({ data }) => {
         const filas = data ?? []
@@ -391,12 +417,13 @@ function CriteriosTab() {
         setOpcionesComplejidad(Array.from(new Set(filas.map((f) => f.complejidad).filter(Boolean))).sort())
         setOpcionesModalidad(Array.from(new Set(filas.map((f) => f.modalidad).filter(Boolean))).sort() as string[])
       })
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolucion])
 
   // Si el Grupo cambia y el Servicio elegido ya no pertenece a él, se limpia
   // (mismo comportamiento que el selector de servicio de la auto-evaluación).
   useEffect(() => {
-    if (servicioFiltro && !serviciosFull.some((s) => s.id === servicioFiltro && s.grupo_res1732_id === grupoFiltro)) {
+    if (servicioFiltro && !serviciosFull.some((s) => s.id === servicioFiltro && s.grupo_id === grupoFiltro)) {
       setServicioFiltro('')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -408,9 +435,9 @@ function CriteriosTab() {
   useEffect(() => {
     let cancelado = false
     async function cargarOpcionesFiltro() {
-      let q = supabase.from('criterios_res1732').select('estandar, complejidad, modalidad')
-      if (grupoFiltro) q = q.eq('grupo_res1732_id', grupoFiltro)
-      if (servicioFiltro) q = q.eq('servicio_res1732_id', servicioFiltro)
+      let q = supabase.from(cfg.tablaCriterios).select('estandar, complejidad, modalidad')
+      if (grupoFiltro) q = q.eq(cfg.columnaGrupoId, grupoFiltro)
+      if (servicioFiltro) q = q.eq(cfg.columnaServicioId, servicioFiltro)
       const { data } = await q
       if (cancelado) return
       const filas = data ?? []
@@ -440,13 +467,13 @@ function CriteriosTab() {
   // el Excel siempre coincida exactamente con los filtros activos en pantalla.
   function construirQuery(columnas: string, conteo: boolean) {
     let query = supabase
-      .from('criterios_res1732')
+      .from(cfg.tablaCriterios)
       .select(columnas, conteo ? { count: 'exact' } : undefined)
       .order('numero')
 
     if (busqueda) query = query.ilike('criterio', `%${busqueda}%`)
-    if (servicioFiltro) query = query.eq('servicio_res1732_id', servicioFiltro)
-    if (grupoFiltro) query = query.eq('grupo_res1732_id', grupoFiltro)
+    if (servicioFiltro) query = query.eq(cfg.columnaServicioId, servicioFiltro)
+    if (grupoFiltro) query = query.eq(cfg.columnaGrupoId, grupoFiltro)
     if (estandarFiltro) query = query.eq('estandar', estandarFiltro)
     if (complejidadFiltro.length > 0) query = query.in('complejidad', complejidadFiltro)
     if (modalidadFiltro.length > 0) query = query.in('modalidad', modalidadFiltro)
@@ -455,11 +482,10 @@ function CriteriosTab() {
 
   async function cargar() {
     setCargando(true)
-    const columnas =
-      'id, llave, numero, item, pagina, criterio, grupo_res1732_id, servicio_res1732_id, numeral_grupo, numeral_servicio, estandar, complejidad, modalidad, grupo_res1732:grupos_res1732(nombre), servicio_res1732:servicios_res1732(nombre)'
+    const columnas = `id, llave, numero, item, pagina, criterio, grupo_id:${cfg.columnaGrupoId}, servicio_id:${cfg.columnaServicioId}, numeral_grupo, numeral_servicio, estandar, complejidad, modalidad, grupo:${cfg.tablaGrupos}(nombre), servicio:${cfg.tablaServicios}(nombre)`
     const query = construirQuery(columnas, true).range(pagina * POR_PAGINA, pagina * POR_PAGINA + POR_PAGINA - 1)
     const { data, count } = await query
-    setCriterios((data as unknown as Criterio[]) ?? [])
+    setCriterios((data as unknown as CriterioCatalogo[]) ?? [])
     setTotal(count ?? 0)
     setCargando(false)
   }
@@ -467,9 +493,9 @@ function CriteriosTab() {
   async function exportarExcel() {
     setExportando(true)
     try {
-      const columnas = 'numero, item, pagina, criterio, numeral_grupo, numeral_servicio, estandar, complejidad, modalidad, grupo_res1732:grupos_res1732(nombre), servicio_res1732:servicios_res1732(nombre)'
+      const columnas = `numero, item, pagina, criterio, numeral_grupo, numeral_servicio, estandar, complejidad, modalidad, grupo:${cfg.tablaGrupos}(nombre), servicio:${cfg.tablaServicios}(nombre)`
       const { data } = await construirQuery(columnas, false)
-      const filas = (data ?? []) as unknown as (Omit<Criterio, 'id' | 'llave' | 'grupo_res1732_id' | 'servicio_res1732_id'>)[]
+      const filas = (data ?? []) as unknown as (Omit<CriterioCatalogo, 'id' | 'llave' | 'grupo_id' | 'servicio_id'>)[]
       await exportarCriteriosExcel({
         filtros: [
           ['Buscar en criterio', busqueda || 'Todos'],
@@ -486,13 +512,14 @@ function CriteriosTab() {
           criterio: c.criterio,
           numeralGrupo: c.numeral_grupo,
           numeralServicio: c.numeral_servicio,
-          grupo: c.grupo_res1732?.nombre ?? '—',
-          servicio: c.servicio_res1732?.nombre ?? '—',
+          grupo: c.grupo?.nombre ?? '—',
+          servicio: c.servicio?.nombre ?? '—',
           estandar: c.estandar,
           complejidad: c.complejidad,
           modalidad: c.modalidad ?? '',
         })),
         logoUrl: LOGO_URL,
+        resolucionLabel: cfg.labelCorto,
       })
     } finally {
       setExportando(false)
@@ -501,7 +528,7 @@ function CriteriosTab() {
 
   async function eliminar() {
     if (!eliminando) return
-    await supabase.from('criterios_res1732').delete().eq('id', eliminando.id)
+    await supabase.from(cfg.tablaCriterios).delete().eq('id', eliminando.id)
     setEliminando(null)
     cargar()
   }
@@ -512,7 +539,7 @@ function CriteriosTab() {
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-slate-500">
-          Tabla maestra de criterios (hoja "AUTOEVALUACION 2026" del Excel, columnas C:L) — {total.toLocaleString()}{' '}
+          Tabla maestra de criterios de la {cfg.label} (tabla {cfg.tablaCriterios}) — {total.toLocaleString()}{' '}
           registros.
         </p>
         <Boton onClick={() => setEditando('nuevo')}>Nuevo criterio</Boton>
@@ -585,41 +612,29 @@ function CriteriosTab() {
             ))}
           </select>
         </CampoFiltro>
-        {/* multiple: opción múltiple (punto 8 del pedido 2026-08-28) — sin
-            selección = "Todas", ctrl/cmd+click para elegir varias. */}
-        <CampoFiltro label="Complejidad" className="w-32">
-          <select
-            multiple
-            value={complejidadFiltro}
-            onChange={(e) => {
+        {/* Chips (SelectorMultiple) en vez del <select multiple> nativo — se
+            veía roto/truncado con las opciones reales de Complejidad/
+            Modalidad, que traen comas y frases largas (punto 2 del pedido
+            2026-09-01). Sin selección = "Todas". */}
+        <CampoFiltro label="Complejidad" className="w-56">
+          <SelectorMultiple
+            opciones={opcionesComplejidadFiltro}
+            seleccionados={complejidadFiltro}
+            onCambiar={(v) => {
               setPagina(0)
-              setComplejidadFiltro(Array.from(e.target.selectedOptions, (o) => o.value))
+              setComplejidadFiltro(v)
             }}
-            className="campo h-20"
-          >
-            {opcionesComplejidadFiltro.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
+          />
         </CampoFiltro>
-        <CampoFiltro label="Modalidad" className="w-36">
-          <select
-            multiple
-            value={modalidadFiltro}
-            onChange={(e) => {
+        <CampoFiltro label="Modalidad" className="w-64">
+          <SelectorMultiple
+            opciones={opcionesModalidadFiltro}
+            seleccionados={modalidadFiltro}
+            onCambiar={(v) => {
               setPagina(0)
-              setModalidadFiltro(Array.from(e.target.selectedOptions, (o) => o.value))
+              setModalidadFiltro(v)
             }}
-            className="campo h-20"
-          >
-            {opcionesModalidadFiltro.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
+          />
         </CampoFiltro>
         <Boton
           variante="secundario"
@@ -675,8 +690,8 @@ function CriteriosTab() {
                     <td className="max-w-lg py-2 pr-4">
                       <span className="line-clamp-2">{c.criterio}</span>
                     </td>
-                    <td className="py-2 pr-4">{c.grupo_res1732?.nombre ?? '—'}</td>
-                    <td className="py-2 pr-4">{c.servicio_res1732?.nombre ?? '—'}</td>
+                    <td className="py-2 pr-4">{c.grupo?.nombre ?? '—'}</td>
+                    <td className="py-2 pr-4">{c.servicio?.nombre ?? '—'}</td>
                     <td className="py-2 pr-4 text-slate-500">{c.numeral_grupo}</td>
                     <td className="py-2 pr-4 text-slate-500">{c.numeral_servicio}</td>
                     <td className="py-2 pr-4">{c.estandar}</td>
@@ -719,7 +734,8 @@ function CriteriosTab() {
         </>
       )}
 
-      <ModalEditarCriterio
+      <ModalEditarCriterioCatalogo
+        resolucion={resolucion}
         registro={editando}
         grupos={grupos}
         servicios={serviciosFull}
@@ -747,7 +763,8 @@ function CriteriosTab() {
   )
 }
 
-function ModalEditarCriterio({
+function ModalEditarCriterioCatalogo({
+  resolucion,
   registro,
   grupos,
   servicios,
@@ -757,7 +774,8 @@ function ModalEditarCriterio({
   onClose,
   onGuardado,
 }: {
-  registro: Criterio | 'nuevo' | null
+  resolucion: ResolucionKey
+  registro: CriterioCatalogo | 'nuevo' | null
   grupos: Grupo[]
   servicios: { id: number; nombre: string }[]
   opcionesEstandar: string[]
@@ -766,6 +784,7 @@ function ModalEditarCriterio({
   onClose: () => void
   onGuardado: () => void
 }) {
+  const cfg = RESOLUCIONES[resolucion]
   const esNuevo = registro === 'nuevo'
   const [llave, setLlave] = useState('')
   const [numero, setNumero] = useState('')
@@ -786,8 +805,8 @@ function ModalEditarCriterio({
       setItem(registro.item ?? '')
       setPagina(registro.pagina ?? '')
       setCriterio(registro.criterio)
-      setGrupoId(registro.grupo_res1732_id)
-      setServicioId(registro.servicio_res1732_id)
+      setGrupoId(registro.grupo_id)
+      setServicioId(registro.servicio_id)
       setEstandar(registro.estandar)
       setComplejidad(registro.complejidad)
       setModalidad(registro.modalidad ?? '')
@@ -811,8 +830,8 @@ function ModalEditarCriterio({
 
     // numeral_grupo/numeral_servicio se derivan del Grupo/Servicio elegidos,
     // para que no queden inconsistentes con las FKs reales.
-    const { data: g } = await supabase.from('grupos_res1732').select('numeral').eq('id', grupoId).single()
-    const { data: s } = await supabase.from('servicios_res1732').select('numeral').eq('id', servicioId).single()
+    const { data: g } = await supabase.from(cfg.tablaGrupos).select('numeral').eq('id', grupoId).single()
+    const { data: s } = await supabase.from(cfg.tablaServicios).select('numeral').eq('id', servicioId).single()
 
     const payload = {
       llave: llave || `manual-${Date.now()}`,
@@ -820,8 +839,8 @@ function ModalEditarCriterio({
       item: item || null,
       pagina: pagina || null,
       criterio,
-      grupo_res1732_id: grupoId,
-      servicio_res1732_id: servicioId,
+      [cfg.columnaGrupoId]: grupoId,
+      [cfg.columnaServicioId]: servicioId,
       numeral_grupo: g?.numeral ?? '',
       numeral_servicio: s?.numeral ?? '',
       estandar,
@@ -830,9 +849,9 @@ function ModalEditarCriterio({
     }
 
     if (esNuevo) {
-      await supabase.from('criterios_res1732').insert(payload)
+      await supabase.from(cfg.tablaCriterios).insert(payload)
     } else if (registro) {
-      await supabase.from('criterios_res1732').update(payload).eq('id', registro.id)
+      await supabase.from(cfg.tablaCriterios).update(payload).eq('id', registro.id)
     }
     setGuardando(false)
     onGuardado()

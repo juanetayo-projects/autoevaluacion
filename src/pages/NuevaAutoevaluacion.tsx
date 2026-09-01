@@ -4,7 +4,8 @@ import { Check, X, MinusCircle, Loader2, ArrowLeft, FileDown } from 'lucide-reac
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { calcularAvance, type Avance, type Respuesta } from '../lib/calculos'
-import { Boton, Card, Modal, PageHeader, Spinner } from '../components/ui/ui'
+import { Boton, Card, Modal, PageHeader, SelectorMultiple, Spinner } from '../components/ui/ui'
+import { RESOLUCIONES, RESOLUCION_KEYS, obtenerServicioUniversalId, type ResolucionKey } from '../domain/resoluciones'
 
 type Empresa = { id: number; nombre: string }
 type Sede = { id: number; nombre: string; empresa_id: number }
@@ -84,73 +85,6 @@ type Compromiso = {
 function filtroIn(columna: string, valores: string[]) {
   const citados = valores.map((v) => `"${v.replace(/"/g, '\\"')}"`).join(',')
   return `${columna}.in.(${citados})`
-}
-
-// Catálogo independiente por resolución (pedido 2026-09-01): mismas tablas
-// paralelas que usa Catalogos.tsx para Res.1732 (grupos_res*/servicios_res*/
-// criterios_res*), agregando Res.3100. El módulo de auto-evaluación pide al
-// usuario con cuál resolución desea trabajar (pantalla `paso === 'resolucion'`)
-// y de ahí en adelante todas las consultas usan esta config para no repetir
-// el switch en cada función.
-type ResolucionKey = 'res1732' | 'res3100'
-type ResolucionConfig = {
-  label: string
-  labelCorto: string
-  tablaServicios: string
-  tablaCriterios: string
-  tablaGrupos: string
-  columnaGrupoId: string
-  // Mismo nombre de columna en servicios_res*/criterios_res* (FK al
-  // servicio) y en autoevaluaciones (cabecera) — coincide por convención en
-  // ambas resoluciones (servicio_res1732_id / servicio_res3100_id).
-  columnaServicioId: string
-  // Columna en autoevaluaciones_respuestas que referencia el criterio de
-  // esta resolución.
-  columnaCriterioRespuesta: string
-  // Numeral del "servicio" universal ("Todo los servicios" en Res.1732 capítulo
-  // 5; el grupo 11.1 completo en Res.3100) — se excluye del desplegable de
-  // Servicio y sus criterios se incluyen siempre, sin filtrar.
-  numeralUniversal: string
-  // Etiqueta corta del "servicio" universal para la UI (Cap. 5 en Res.1732;
-  // el grupo 11.1 completo en Res.3100, que no tiene numeración de capítulo).
-  labelUniversal: string
-  banner?: string
-}
-const RESOLUCIONES: Record<ResolucionKey, ResolucionConfig> = {
-  res1732: {
-    label: 'Resolución 1732 de 2026',
-    labelCorto: 'Res. 1732',
-    tablaServicios: 'servicios_res1732',
-    tablaCriterios: 'criterios_res1732',
-    tablaGrupos: 'grupos_res1732',
-    columnaGrupoId: 'grupo_res1732_id',
-    columnaServicioId: 'servicio_res1732_id',
-    columnaCriterioRespuesta: 'criterio_id',
-    numeralUniversal: '5',
-    labelUniversal: 'Cap. 5',
-    banner: 'images/banner_resolucion1732.webp',
-  },
-  res3100: {
-    label: 'Resolución 3100 de 2019',
-    labelCorto: 'Res. 3100',
-    tablaServicios: 'servicios_res3100',
-    tablaCriterios: 'criterios_res3100',
-    tablaGrupos: 'grupos_res3100',
-    columnaGrupoId: 'grupo_res3100_id',
-    columnaServicioId: 'servicio_res3100_id',
-    columnaCriterioRespuesta: 'criterio_res3100_id',
-    numeralUniversal: '11.1',
-    labelUniversal: 'Grupo 11.1',
-  },
-}
-
-const universalIdCache: Partial<Record<ResolucionKey, number | null>> = {}
-async function obtenerServicioUniversalId(resolucion: ResolucionKey) {
-  if (universalIdCache[resolucion] != null) return universalIdCache[resolucion]!
-  const cfg = RESOLUCIONES[resolucion]
-  const { data } = await supabase.from(cfg.tablaServicios).select('id').eq('numeral', cfg.numeralUniversal).single()
-  universalIdCache[resolucion] = data?.id ?? null
-  return universalIdCache[resolucion]
 }
 
 export default function NuevaAutoevaluacion() {
@@ -680,7 +614,7 @@ export default function NuevaAutoevaluacion() {
         <Card className="mx-auto max-w-2xl p-4">
           <p className="mb-4 text-sm text-slate-600">¿Con cuál resolución deseas trabajar esta auto-evaluación?</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {(Object.keys(RESOLUCIONES) as ResolucionKey[]).map((key) => {
+            {RESOLUCION_KEYS.map((key) => {
               const cfg = RESOLUCIONES[key]
               return (
                 <button
@@ -1404,41 +1338,3 @@ function Campo({ label, children, className = '' }: { label: string; children: R
   )
 }
 
-// Selector de opción múltiple por chips (punto 8 del pedido 2026-08-28) —
-// reemplaza el <select> simple de Modalidad/Complejidad. Sin selección =
-// "Todas" (mismo significado que antes tenía el valor TODAS).
-function SelectorMultiple({
-  opciones,
-  seleccionados,
-  onCambiar,
-}: {
-  opciones: string[]
-  seleccionados: string[]
-  onCambiar: (valores: string[]) => void
-}) {
-  function alternar(valor: string) {
-    onCambiar(seleccionados.includes(valor) ? seleccionados.filter((v) => v !== valor) : [...seleccionados, valor])
-  }
-  return (
-    <div className="campo flex min-h-[2.25rem] flex-wrap items-center gap-1.5 py-1.5">
-      {opciones.length === 0 ? (
-        <span className="text-slate-400">Todas</span>
-      ) : (
-        opciones.map((o) => (
-          <button
-            key={o}
-            type="button"
-            onClick={() => alternar(o)}
-            className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
-              seleccionados.includes(o)
-                ? 'border-azul bg-azul text-white'
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            {o}
-          </button>
-        ))
-      )}
-    </div>
-  )
-}

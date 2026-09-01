@@ -21,12 +21,13 @@ import {
 } from 'recharts'
 import { supabase } from '../lib/supabase'
 import { Badge, Boton, Card, FilterBar, MetricCard, PageHeader, Spinner } from '../components/ui/ui'
+import { RESOLUCIONES, RESOLUCION_KEYS, type ResolucionKey } from '../domain/resoluciones'
 
 type ResumenAutoevaluacion = {
   id: string
   fecha: string
   estado: 'borrador' | 'finalizada'
-  servicio_res1732: { nombre: string } | null
+  servicio: { nombre: string } | null
   usuario: { nombre: string } | null
 }
 
@@ -43,7 +44,7 @@ type Sede = { id: number; nombre: string }
 type Empresa = { id: number; nombre: string }
 type ServicioLite = { id: number; nombre: string }
 type GrupoLite = { id: number; nombre: string }
-type CriterioLite = { estandar: string; complejidad: string; grupo_res1732_id: number }
+type CriterioLite = { estandar: string; complejidad: string; grupo_id: number }
 type ServicioPorGrupo = { grupo: string; cantidad: number; color: string }
 
 // Fila del panel filtrable de auto-evaluaciones (sección 3 del pedido
@@ -56,10 +57,10 @@ type AutoevaluacionFila = {
   habilitada: boolean
   empresa_id: number
   sede_id: number
-  servicio_res1732_id: number
+  servicio_id: number
   empresa: { nombre: string } | null
   sede: { nombre: string } | null
-  servicio_res1732: { nombre: string } | null
+  servicio: { nombre: string } | null
   usuario: { nombre: string } | null
 }
 
@@ -112,6 +113,11 @@ function nombreCortoGrupo(nombre: string) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  // Filtro de Resolución (pedido 2026-09-01, punto 4): elige con cuál
+  // resolución trabaja TODO el dashboard — métricas, panel filtrable y
+  // catálogo en cifras cambian de fuente (tablas res1732 vs res3100) según
+  // este valor, en vez de mezclarlas.
+  const [resolucion, setResolucion] = useState<ResolucionKey>('res1732')
   const [resumen, setResumen] = useState<Resumen | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
@@ -154,36 +160,49 @@ export default function Dashboard() {
       .select('id, nombre')
       .order('nombre')
       .then(({ data }) => setEmpresas((data as Empresa[]) ?? []))
+  }, [])
+
+  // Al cambiar de Resolución: recarga el catálogo de Servicios del panel y
+  // las gráficas de "Catálogo en cifras", y limpia los filtros que dependen
+  // de IDs específicos de la resolución anterior (Servicio del panel, Grupo
+  // de la gráfica) — los IDs son secuencias independientes por tabla, así
+  // que un mismo número en res1732 y res3100 no es el mismo registro.
+  useEffect(() => {
+    const cfg = RESOLUCIONES[resolucion]
     supabase
-      .from('servicios_res1732')
+      .from(cfg.tablaServicios)
       .select('id, nombre')
-      .neq('numeral', '5')
+      .neq('numeral', cfg.numeralUniversal)
       .order('nombre')
       .then(({ data }) => setServiciosRes((data as ServicioLite[]) ?? []))
+    setPanelServicioFiltro('')
+    setGrupoFiltroChart('')
     cargarGraficas()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolucion])
 
   useEffect(() => {
     cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sedeFiltro])
+  }, [sedeFiltro, resolucion])
 
   useEffect(() => {
     cargarPanel()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelEmpresaFiltro, panelSedeFiltro, panelServicioFiltro, panelEstadoFiltro, panelHabilitadaFiltro])
+  }, [panelEmpresaFiltro, panelSedeFiltro, panelServicioFiltro, panelEstadoFiltro, panelHabilitadaFiltro, resolucion])
 
   async function cargarPanel() {
     setCargandoPanel(true)
+    const cfg = RESOLUCIONES[resolucion]
+    const columnasPanel: string = `id, fecha, estado, habilitada, empresa_id, sede_id, servicio_id:${cfg.columnaServicioId}, empresa:empresas(nombre), sede:sedes(nombre), servicio:${cfg.tablaServicios}(nombre), usuario:profiles(nombre)`
     let q = supabase
       .from('autoevaluaciones')
-      .select(
-        'id, fecha, estado, habilitada, empresa_id, sede_id, servicio_res1732_id, empresa:empresas(nombre), sede:sedes(nombre), servicio_res1732:servicios_res1732(nombre), usuario:profiles(nombre)',
-      )
+      .select(columnasPanel)
+      .eq('resolucion', resolucion)
       .order('creado_en', { ascending: false })
     if (panelEmpresaFiltro) q = q.eq('empresa_id', panelEmpresaFiltro)
     if (panelSedeFiltro) q = q.eq('sede_id', panelSedeFiltro)
-    if (panelServicioFiltro) q = q.eq('servicio_res1732_id', panelServicioFiltro)
+    if (panelServicioFiltro) q = q.eq(cfg.columnaServicioId, panelServicioFiltro)
     if (panelEstadoFiltro !== 'todos') q = q.eq('estado', panelEstadoFiltro)
     if (panelHabilitadaFiltro !== 'todos') q = q.eq('habilitada', panelHabilitadaFiltro === 'si')
     const { data } = await q
@@ -203,12 +222,14 @@ export default function Dashboard() {
       setDesglosePorEstandar({})
       return
     }
+    const cfg = RESOLUCIONES[resolucion]
+    const columnasDesglose: string = `autoevaluacion_id, respuesta, criterio:${cfg.tablaCriterios}(estandar)`
     const TAMANO_PAGINA = 1000
     const filas: { autoevaluacion_id: string; respuesta: string; criterio: { estandar: string } | null }[] = []
     for (let desde = 0; ; desde += TAMANO_PAGINA) {
       const { data } = await supabase
         .from('autoevaluaciones_respuestas')
-        .select('autoevaluacion_id, respuesta, criterio:criterios_res1732(estandar)')
+        .select(columnasDesglose)
         .in('autoevaluacion_id', ids)
         .range(desde, desde + TAMANO_PAGINA - 1)
       const pagina = (data as unknown as typeof filas) ?? []
@@ -258,15 +279,16 @@ export default function Dashboard() {
   // El proyecto de Supabase tiene un tope de 1.000 filas por consulta
   // (db-max-rows), que un Range header del cliente no puede superar — hay
   // que paginar en varias vueltas para traer los 3.557 criterios completos.
-  async function traerTodosLosCriterios() {
+  async function traerTodosLosCriterios(cfg: (typeof RESOLUCIONES)[ResolucionKey]) {
+    const columnasLite: string = `estandar, complejidad, grupo_id:${cfg.columnaGrupoId}`
     const TAMANO_PAGINA = 1000
     const todas: CriterioLite[] = []
     for (let desde = 0; ; desde += TAMANO_PAGINA) {
       const { data } = await supabase
-        .from('criterios_res1732')
-        .select('estandar, complejidad, grupo_res1732_id')
+        .from(cfg.tablaCriterios)
+        .select(columnasLite)
         .range(desde, desde + TAMANO_PAGINA - 1)
-      const filas = (data as CriterioLite[]) ?? []
+      const filas = (data as unknown as CriterioLite[]) ?? []
       todas.push(...filas)
       if (filas.length < TAMANO_PAGINA) break
     }
@@ -275,18 +297,20 @@ export default function Dashboard() {
 
   async function cargarGraficas() {
     setCargandoGraficas(true)
+    const cfg = RESOLUCIONES[resolucion]
+    const columnasGrupoServicio: string = `grupo:${cfg.tablaGrupos}(nombre)`
     const [{ data: serviciosData }, { data: gruposData }, criteriosData] = await Promise.all([
       supabase
-        .from('servicios_res1732')
-        .select('grupo_res1732:grupos_res1732(nombre)')
-        .neq('numeral', '5'),
-      supabase.from('grupos_res1732').select('id, nombre').neq('numeral', '5').order('nombre'),
-      traerTodosLosCriterios(),
+        .from(cfg.tablaServicios)
+        .select(columnasGrupoServicio)
+        .neq('numeral', cfg.numeralUniversal),
+      supabase.from(cfg.tablaGrupos).select('id, nombre').neq('numeral', cfg.numeralUniversal).order('nombre'),
+      traerTodosLosCriterios(cfg),
     ])
 
     const conteoGrupo = new Map<string, number>()
-    for (const s of (serviciosData as unknown as { grupo_res1732: { nombre: string } | null }[]) ?? []) {
-      const nombre = s.grupo_res1732?.nombre ?? 'Sin grupo'
+    for (const s of (serviciosData as unknown as { grupo: { nombre: string } | null }[]) ?? []) {
+      const nombre = s.grupo?.nombre ?? 'Sin grupo'
       conteoGrupo.set(nombre, (conteoGrupo.get(nombre) ?? 0) + 1)
     }
     setServiciosPorGrupo(
@@ -303,14 +327,16 @@ export default function Dashboard() {
     setCargando(true)
     setError('')
     try {
-      // Las respuestas no traen sede_id directo — se filtra a través del
-      // join a autoevaluaciones (!inner obliga la coincidencia y habilita
-      // filtrar por autoevaluaciones.sede_id desde acá).
+      const cfg = RESOLUCIONES[resolucion]
+      // Las respuestas no traen sede_id/resolucion directo — se filtra a
+      // través del join a autoevaluaciones (!inner obliga la coincidencia y
+      // habilita filtrar por autoevaluaciones.sede_id/resolucion desde acá).
       const conteoRespuesta = (respuesta: string) => {
         let q = supabase
           .from('autoevaluaciones_respuestas')
-          .select('id, autoevaluaciones!inner(sede_id)', { count: 'exact', head: true })
+          .select('id, autoevaluaciones!inner(sede_id, resolucion)', { count: 'exact', head: true })
           .eq('respuesta', respuesta)
+          .eq('autoevaluaciones.resolucion', resolucion)
         if (sedeFiltro) q = q.eq('autoevaluaciones.sede_id', sedeFiltro)
         return q
       }
@@ -318,17 +344,21 @@ export default function Dashboard() {
         .from('autoevaluaciones')
         .select('*', { count: 'exact', head: true })
         .eq('estado', 'borrador')
+        .eq('resolucion', resolucion)
       if (sedeFiltro) borradoresQuery = borradoresQuery.eq('sede_id', sedeFiltro)
 
       let habilitadasQuery = supabase
         .from('autoevaluaciones')
         .select('*', { count: 'exact', head: true })
         .eq('habilitada', true)
+        .eq('resolucion', resolucion)
       if (sedeFiltro) habilitadasQuery = habilitadasQuery.eq('sede_id', sedeFiltro)
 
+      const columnasRecientes: string = `id, fecha, estado, servicio:${cfg.tablaServicios}(nombre), usuario:profiles(nombre)`
       let recientesQuery = supabase
         .from('autoevaluaciones')
-        .select('id, fecha, estado, servicio_res1732:servicios_res1732(nombre), usuario:profiles(nombre)')
+        .select(columnasRecientes)
+        .eq('resolucion', resolucion)
         .order('creado_en', { ascending: false })
         .limit(6)
       if (sedeFiltro) recientesQuery = recientesQuery.eq('sede_id', sedeFiltro)
@@ -371,7 +401,7 @@ export default function Dashboard() {
   // Complejidad — le da dinamismo sin ida y vuelta a Supabase (ya se trajo
   // la tabla completa de criterios, liviana: 3 columnas de texto).
   const criteriosFiltrados = useMemo(
-    () => (grupoFiltroChart ? criteriosLite.filter((c) => c.grupo_res1732_id === grupoFiltroChart) : criteriosLite),
+    () => (grupoFiltroChart ? criteriosLite.filter((c) => c.grupo_id === grupoFiltroChart) : criteriosLite),
     [criteriosLite, grupoFiltroChart],
   )
 
@@ -398,6 +428,18 @@ export default function Dashboard() {
         titulo="Dashboard"
         acciones={
           <>
+            <select
+              value={resolucion}
+              onChange={(e) => setResolucion(e.target.value as ResolucionKey)}
+              className="campo w-36"
+              aria-label="Filtrar por Resolución"
+            >
+              {RESOLUCION_KEYS.map((k) => (
+                <option key={k} value={k}>
+                  {RESOLUCIONES[k].labelCorto}
+                </option>
+              ))}
+            </select>
             <select
               value={sedeFiltro}
               onChange={(e) => setSedeFiltro(e.target.value ? Number(e.target.value) : '')}
@@ -477,7 +519,7 @@ export default function Dashboard() {
                     className="grid w-full grid-cols-[1fr_160px_90px_90px] items-center gap-3 py-1.5 text-left text-sm hover:bg-slate-50"
                   >
                     <span className="truncate font-medium text-slate-700">
-                      {r.servicio_res1732?.nombre ?? 'Servicio sin definir'}
+                      {r.servicio?.nombre ?? 'Servicio sin definir'}
                     </span>
                     <span className="truncate text-slate-500">{r.usuario?.nombre ?? '—'}</span>
                     <span className={r.estado === 'borrador' ? 'text-amber-600' : 'text-emerald-600'}>
@@ -655,7 +697,7 @@ export default function Dashboard() {
                                 <td className="py-2 pr-4">{a.fecha}</td>
                                 <td className="py-2 pr-4">{a.empresa?.nombre ?? '—'}</td>
                                 <td className="py-2 pr-4">{a.sede?.nombre ?? '—'}</td>
-                                <td className="py-2 pr-4 font-medium text-slate-700">{a.servicio_res1732?.nombre ?? '—'}</td>
+                                <td className="py-2 pr-4 font-medium text-slate-700">{a.servicio?.nombre ?? '—'}</td>
                                 <td className="py-2 pr-4">{a.usuario?.nombre ?? '—'}</td>
                                 <td className="py-2 pr-4">
                                   <Badge tono={a.estado === 'finalizada' ? 'exito' : 'advertencia'}>
@@ -693,11 +735,12 @@ export default function Dashboard() {
             </>
           )}
 
-          {/* Gráficas del catálogo Res.1732 — independientes de la Sede (son
-              metadatos del catálogo, no datos de auto-evaluaciones). El
-              filtro de Grupo acota Estándar/Complejidad en vivo. */}
+          {/* Gráficas del catálogo de la resolución elegida — independientes
+              de la Sede (son metadatos del catálogo, no datos de
+              auto-evaluaciones). El filtro de Grupo acota Estándar/
+              Complejidad en vivo. */}
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-azul">Catálogo Res.1732 en cifras</h2>
+            <h2 className="text-base font-semibold text-azul">Catálogo {RESOLUCIONES[resolucion].labelCorto} en cifras</h2>
           </div>
 
           {cargandoGraficas ? (

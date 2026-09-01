@@ -4,6 +4,7 @@ import { ShieldCheck, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Badge, Boton, Card, FilterBar, Modal, PageHeader, Spinner } from '../components/ui/ui'
+import { RESOLUCIONES, RESOLUCION_KEYS, type ResolucionKey } from '../domain/resoluciones'
 
 type Fila = {
   id: string
@@ -11,14 +12,13 @@ type Fila = {
   estado: 'borrador' | 'finalizada'
   habilitada: boolean
   lugar: string | null
-  resolucion: 'res1732' | 'res3100'
+  resolucion: ResolucionKey
   servicio_res1732: { nombre: string } | null
   servicio_res3100: { nombre: string } | null
   usuario: { nombre: string } | null
   sede: { nombre: string } | null
 }
 
-const RESOLUCION_LABEL: Record<Fila['resolucion'], string> = { res1732: 'Res. 1732', res3100: 'Res. 3100' }
 function nombreServicio(f: Fila) {
   return (f.resolucion === 'res3100' ? f.servicio_res3100 : f.servicio_res1732)?.nombre ?? '—'
 }
@@ -29,6 +29,7 @@ export default function Historial() {
   const [filas, setFilas] = useState<Fila[]>([])
   const [cargando, setCargando] = useState(true)
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'borrador' | 'finalizada'>('todos')
+  const [filtroResolucion, setFiltroResolucion] = useState<'todas' | ResolucionKey>('todas')
   const [busqueda, setBusqueda] = useState('')
   const [eliminando, setEliminando] = useState<Fila | null>(null)
   const [borrando, setBorrando] = useState(false)
@@ -130,6 +131,7 @@ export default function Historial() {
 
   const filtradas = filas.filter((f) => {
     if (filtroEstado !== 'todos' && f.estado !== filtroEstado) return false
+    if (filtroResolucion !== 'todas' && f.resolucion !== filtroResolucion) return false
     if (busqueda && !nombreServicio(f).toLowerCase().includes(busqueda.toLowerCase())) return false
     return true
   })
@@ -142,6 +144,21 @@ export default function Historial() {
         <label className="text-sm">
           <span className="mb-1 block font-medium text-slate-600">Buscar servicio</span>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-slate-600">Resolución</span>
+          <select
+            value={filtroResolucion}
+            onChange={(e) => setFiltroResolucion(e.target.value as typeof filtroResolucion)}
+            className="campo"
+          >
+            <option value="todas">Todas</option>
+            {RESOLUCION_KEYS.map((k) => (
+              <option key={k} value={k}>
+                {RESOLUCIONES[k].labelCorto}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="text-sm">
           <span className="mb-1 block font-medium text-slate-600">Estado</span>
@@ -186,7 +203,7 @@ export default function Historial() {
                       {f.fecha}
                     </td>
                     <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
-                      <Badge tono="info">{RESOLUCION_LABEL[f.resolucion]}</Badge>
+                      <Badge tono="info">{RESOLUCIONES[f.resolucion].labelCorto}</Badge>
                     </td>
                     <td
                       className="cursor-pointer py-2 pr-4 font-medium text-slate-700"
