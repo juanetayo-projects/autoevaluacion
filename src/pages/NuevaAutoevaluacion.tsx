@@ -620,10 +620,20 @@ export default function NuevaAutoevaluacion() {
                 <button
                   key={key}
                   onClick={() => seleccionarResolucion(key)}
-                  className="flex flex-col items-start gap-1 rounded-xl border-2 border-slate-200 bg-white p-4 text-left transition-colors hover:border-azul hover:bg-sky-50"
+                  className="group relative flex h-48 flex-col justify-end overflow-hidden rounded-xl border-2 border-slate-200 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-azul hover:shadow-lg"
                 >
-                  <span className="text-base font-bold text-azul">{cfg.labelCorto}</span>
-                  <span className="text-sm text-slate-600">{cfg.label}</span>
+                  {cfg.banner && (
+                    <img
+                      src={`${import.meta.env.BASE_URL}${cfg.banner}`}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover object-left transition-transform duration-300 group-hover:scale-105"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-azul via-azul/25 to-transparent" />
+                  <div className="relative p-4">
+                    <span className="block text-lg font-bold text-white drop-shadow-sm">{cfg.labelCorto}</span>
+                    <span className="block text-xs text-white/85 drop-shadow-sm">{cfg.label}</span>
+                  </div>
                 </button>
               )
             })}
@@ -644,18 +654,19 @@ export default function NuevaAutoevaluacion() {
       <div>
         <PageHeader titulo={`Nueva auto-evaluación — ${cfgSeleccionada?.labelCorto ?? ''}`} />
         <Card className="mx-auto max-w-2xl p-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            {cfgSeleccionada?.banner ? (
-              <img
-                src={`${import.meta.env.BASE_URL}${cfgSeleccionada.banner}`}
-                alt={`${cfgSeleccionada.label} — CAC Santa Bárbara`}
-                className="w-full rounded-lg"
-              />
-            ) : (
-              <div className="w-full rounded-lg bg-azul/5 px-4 py-3 text-sm font-semibold text-azul">
-                {cfgSeleccionada?.label}
-              </div>
-            )}
+          {/* En la pantalla de selección de resolución las imágenes ya
+              cumplieron su función (identificar visualmente cada
+              resolución) — acá, antes del formulario, se reemplazan por un
+              encabezado compacto con el nombre de la resolución en texto
+              (pedido 2026-09-02), para no ocupar tanto espacio vertical
+              antes de los campos. */}
+          <div className="mb-3 rounded-xl bg-gradient-to-r from-azul to-azul2 px-5 py-4 shadow-md">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-white/60">
+              CAC Santa Bárbara · Auto-evaluación
+            </div>
+            <div className="text-xl font-extrabold uppercase tracking-tight text-white">
+              {cfgSeleccionada?.label}
+            </div>
           </div>
           <button
             onClick={() => setPaso('resolucion')}
