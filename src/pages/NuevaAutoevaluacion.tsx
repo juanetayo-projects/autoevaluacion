@@ -611,9 +611,9 @@ export default function NuevaAutoevaluacion() {
     return (
       <div>
         <PageHeader titulo="Nueva auto-evaluación" />
-        <Card className="mx-auto max-w-2xl p-4">
+        <Card className="mx-auto max-w-3xl p-4">
           <p className="mb-4 text-sm text-slate-600">¿Con cuál resolución deseas trabajar esta auto-evaluación?</p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {RESOLUCION_KEYS.map((key) => {
               const cfg = RESOLUCIONES[key]
               return (
@@ -1066,11 +1066,17 @@ export default function NuevaAutoevaluacion() {
                   </button>
                   {!colapsado && (
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                      <FiltroServicio
-                        valor={filtroServicio}
-                        labelUniversal={resolucion ? RESOLUCIONES[resolucion].labelUniversal : ''}
-                        onCambiar={(f) => setFiltroServicioGrupo((prev) => ({ ...prev, [g.clave]: f }))}
-                      />
+                      {/* Sin concepto de "universal" (ej. ISO 9001) todos los
+                          criterios son siempre "propio" — el filtro no
+                          aportaría nada, se omite en vez de mostrar un chip
+                          que nunca trae resultados. */}
+                      {resolucion && RESOLUCIONES[resolucion].tieneUniversal !== false && (
+                        <FiltroServicio
+                          valor={filtroServicio}
+                          labelUniversal={RESOLUCIONES[resolucion].labelUniversal}
+                          onCambiar={(f) => setFiltroServicioGrupo((prev) => ({ ...prev, [g.clave]: f }))}
+                        />
+                      )}
                       <FiltroRespuestas
                         valor={filtro}
                         onCambiar={(f) => setFiltroGrupo((prev) => ({ ...prev, [g.clave]: f }))}
@@ -1246,7 +1252,11 @@ function FilaCriterio({
         <span
           className={`mt-0.5 flex h-6 shrink-0 items-center justify-center rounded-md px-2 text-xs font-bold tabular-nums text-white ${color.badge}`}
         >
-          {criterio.numeral_servicio}.{criterio.item ?? criterio.numero}
+          {/* Si el Item ya trae el Numeral Servicio como prefijo (caso
+              ISO 9001, ej. "8.2.1 a)"), no se repite (evitar "8.8.2.1 a)"). */}
+          {criterio.item && criterio.item.startsWith(`${criterio.numeral_servicio}.`)
+            ? criterio.item
+            : `${criterio.numeral_servicio}.${criterio.item ?? criterio.numero}`}
         </span>
         <div className="flex-1 text-sm leading-relaxed text-slate-700">{criterio.criterio}</div>
       </div>

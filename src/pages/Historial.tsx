@@ -15,12 +15,15 @@ type Fila = {
   resolucion: ResolucionKey
   servicio_res1732: { nombre: string } | null
   servicio_res3100: { nombre: string } | null
+  servicio_iso9001: { nombre: string } | null
   usuario: { nombre: string } | null
   sede: { nombre: string } | null
 }
 
 function nombreServicio(f: Fila) {
-  return (f.resolucion === 'res3100' ? f.servicio_res3100 : f.servicio_res1732)?.nombre ?? '—'
+  const servicio =
+    f.resolucion === 'res3100' ? f.servicio_res3100 : f.resolucion === 'iso9001' ? f.servicio_iso9001 : f.servicio_res1732
+  return servicio?.nombre ?? '—'
 }
 
 export default function Historial() {
@@ -58,7 +61,7 @@ export default function Historial() {
     const { data } = await supabase
       .from('autoevaluaciones')
       .select(
-        'id, fecha, estado, habilitada, lugar, resolucion, servicio_res1732:servicios_res1732(nombre), servicio_res3100:servicios_res3100(nombre), usuario:profiles(nombre), sede:sedes(nombre)',
+        'id, fecha, estado, habilitada, lugar, resolucion, servicio_res1732:servicios_res1732(nombre), servicio_res3100:servicios_res3100(nombre), servicio_iso9001:servicios_iso9001(nombre), usuario:profiles(nombre), sede:sedes(nombre)',
       )
       .order('creado_en', { ascending: false })
     setFilas((data as unknown as Fila[]) ?? [])

@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase'
 // convención — grupo_res1732_id/grupo_res3100_id, servicio_res1732_id/
 // servicio_res3100_id). Config compartida entre NuevaAutoevaluacion,
 // Historial, Dashboard y Catalogos para no repetir el switch en cada uno.
-export type ResolucionKey = 'res1732' | 'res3100'
+export type ResolucionKey = 'res1732' | 'res3100' | 'iso9001'
 
 export type ResolucionConfig = {
   label: string
@@ -29,6 +29,12 @@ export type ResolucionConfig = {
   // Etiqueta corta del "servicio" universal para la UI (Cap. 5 en Res.1732;
   // el grupo 11.1 completo en Res.3100, que no tiene numeración de capítulo).
   labelUniversal: string
+  // false cuando la resolución no tiene concepto de "criterios universales
+  // aplicables a todos los servicios" (ISO 9001: cada capítulo se
+  // autoevalúa por separado, no hay un bloque transversal) — oculta el chip
+  // de filtro correspondiente en vez de mostrar uno que nunca trae resultados.
+  // Por defecto true (Res.1732/Res.3100 sí lo tienen).
+  tieneUniversal?: boolean
   banner?: string
 }
 
@@ -58,6 +64,29 @@ export const RESOLUCIONES: Record<ResolucionKey, ResolucionConfig> = {
     numeralUniversal: '11.1',
     labelUniversal: 'Grupo 11.1',
     banner: 'images/banner_resolucion3100.webp',
+  },
+  // NTC-ISO 9001:2015 (pedido 2026-09-01): no tiene "Servicio" en el sentido
+  // de las resoluciones de habilitación (un solo SGC para toda la
+  // organización, no por servicio de salud) — se reusa igual el mismo patrón
+  // Grupo→Servicio→Criterio para no tocar el resto de la app: el "Grupo" es
+  // un único registro paraguas ("Norma NTC-ISO 9001:2015", numeral "0") y los
+  // 7 capítulos (4 Contexto de la organización … 10 Mejora) hacen de
+  // "Servicio" seleccionable. No existe un numeral universal (cada capítulo
+  // se autoevalúa por separado) — se usa un numeral que nunca calza con
+  // ningún servicio real para que obtenerServicioUniversalId() no traiga
+  // nada y todos los capítulos queden seleccionables.
+  iso9001: {
+    label: 'NTC-ISO 9001:2015',
+    labelCorto: 'ISO 9001',
+    tablaServicios: 'servicios_iso9001',
+    tablaCriterios: 'criterios_iso9001',
+    tablaGrupos: 'grupos_iso9001',
+    columnaGrupoId: 'grupo_iso9001_id',
+    columnaServicioId: 'servicio_iso9001_id',
+    columnaCriterioRespuesta: 'criterio_iso9001_id',
+    numeralUniversal: '—sin-universal—',
+    labelUniversal: 'N/A',
+    tieneUniversal: false,
   },
 }
 

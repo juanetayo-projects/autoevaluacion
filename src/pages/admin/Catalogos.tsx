@@ -6,7 +6,16 @@ import { RESOLUCIONES, type ResolucionKey } from '../../domain/resoluciones'
 
 const LOGO_URL = `${import.meta.env.BASE_URL}images/logo_cacsb2.png`
 
-type Tab = 'servicios1732' | 'criterios1732' | 'servicios3100' | 'criterios3100' | 'empresas' | 'sedes' | 'periodicidades'
+type Tab =
+  | 'servicios1732'
+  | 'criterios1732'
+  | 'servicios3100'
+  | 'criterios3100'
+  | 'serviciosIso9001'
+  | 'criteriosIso9001'
+  | 'empresas'
+  | 'sedes'
+  | 'periodicidades'
 
 export default function Catalogos() {
   const [tab, setTab] = useState<Tab>('servicios1732')
@@ -28,6 +37,12 @@ export default function Catalogos() {
           <BotonTab activo={tab === 'criterios3100'} onClick={() => setTab('criterios3100')}>
             Criterios Res.3100
           </BotonTab>
+          <BotonTab activo={tab === 'serviciosIso9001'} onClick={() => setTab('serviciosIso9001')}>
+            Capítulos ISO 9001
+          </BotonTab>
+          <BotonTab activo={tab === 'criteriosIso9001'} onClick={() => setTab('criteriosIso9001')}>
+            Criterios ISO 9001
+          </BotonTab>
           <BotonTab activo={tab === 'empresas'} onClick={() => setTab('empresas')}>
             Empresas
           </BotonTab>
@@ -44,6 +59,8 @@ export default function Catalogos() {
       {tab === 'criterios1732' && <CriteriosCatalogoTab resolucion="res1732" />}
       {tab === 'servicios3100' && <ServiciosCatalogoTab resolucion="res3100" />}
       {tab === 'criterios3100' && <CriteriosCatalogoTab resolucion="res3100" />}
+      {tab === 'serviciosIso9001' && <ServiciosCatalogoTab resolucion="iso9001" />}
+      {tab === 'criteriosIso9001' && <CriteriosCatalogoTab resolucion="iso9001" />}
       {tab === 'empresas' && <EmpresasTab />}
       {tab === 'sedes' && <SedesTab />}
       {tab === 'periodicidades' && <PeriodicidadesTab />}
