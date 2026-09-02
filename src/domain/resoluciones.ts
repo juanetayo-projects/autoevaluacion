@@ -87,6 +87,7 @@ export const RESOLUCIONES: Record<ResolucionKey, ResolucionConfig> = {
     numeralUniversal: '—sin-universal—',
     labelUniversal: 'N/A',
     tieneUniversal: false,
+    banner: 'images/banner_iso9001.webp',
   },
 }
 
