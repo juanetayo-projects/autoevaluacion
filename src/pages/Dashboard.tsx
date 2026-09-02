@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, ChevronRight, ClipboardCheck, ClipboardX, CircleSlash, FileClock, ShieldCheck } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, ClipboardCheck, ClipboardX, CircleSlash, FileClock, ShieldCheck } from 'lucide-react'
 import {
   ResponsiveContainer,
   BarChart,
@@ -312,6 +312,21 @@ export default function Dashboard() {
     return Array.from(mapa.values()).sort((a, b) => b.habilitadas + b.noHabilitadas - (a.habilitadas + a.noHabilitadas))
   }, [autoevaluacionesPanel])
 
+  // Datos del medidor "Auto-evaluaciones por Habilitación" (modelo_dashboard.png):
+  // agregado Habilitadas/No habilitadas de todo el panel filtrado, en un solo
+  // semicírculo — mismo dato que ya arma habilitadasPorSede, solo sumado.
+  const totalHabilitadasGauge = habilitadasPorSede.reduce((a, s) => a + s.habilitadas, 0)
+  const totalNoHabilitadasGauge = habilitadasPorSede.reduce((a, s) => a + s.noHabilitadas, 0)
+  const totalGauge = totalHabilitadasGauge + totalNoHabilitadasGauge
+  const pctHabilitadasGauge = totalGauge > 0 ? Math.round((totalHabilitadasGauge / totalGauge) * 100) : 0
+  const datosGauge =
+    totalGauge > 0
+      ? [
+          { name: 'Habilitadas', value: totalHabilitadasGauge },
+          { name: 'No habilitadas', value: totalNoHabilitadasGauge },
+        ]
+      : [{ name: 'Sin datos', value: 1 }]
+
   // Ejes del mapa de calor Sede × Estándar: sedes en el orden del catálogo
   // (constante entre resoluciones/filtros); estándares en el orden de
   // aparición dentro de los datos ya agregados (evita alfabetizar frases
@@ -528,41 +543,170 @@ export default function Dashboard() {
             <MetricCard
               titulo="Cumple"
               valor={`${pct(resumen?.totalCumple ?? 0)}%`}
-              icono={<ClipboardCheck size={18} />}
+              icono={<ClipboardCheck size={16} />}
               sub={`${resumen?.totalCumple ?? 0} criterios`}
+              tono="exito"
             />
             <MetricCard
               titulo="No cumple"
               valor={`${pct(resumen?.totalNoCumple ?? 0)}%`}
-              icono={<ClipboardX size={18} />}
+              icono={<ClipboardX size={16} />}
               sub={`${resumen?.totalNoCumple ?? 0} criterios`}
+              tono="peligro"
             />
             <MetricCard
               titulo="No aplica"
               valor={`${pct(resumen?.totalNoAplica ?? 0)}%`}
-              icono={<CircleSlash size={18} />}
+              icono={<CircleSlash size={16} />}
               sub={`${resumen?.totalNoAplica ?? 0} criterios`}
+              tono="advertencia"
             />
             <MetricCard
               titulo="Borradores"
               valor={resumen?.borradores ?? 0}
-              icono={<FileClock size={18} />}
-              sub="Pendientes de continuar"
+              icono={<FileClock size={16} />}
+              sub="Pendientes"
+              tono="morado"
             />
             <MetricCard
               titulo="Habilitadas"
               valor={resumen?.habilitadas ?? 0}
-              icono={<ShieldCheck size={18} />}
-              sub="Auto-evaluaciones aprobadas"
+              icono={<ShieldCheck size={16} />}
+              sub="Aprobadas"
+              tono="info"
             />
           </div>
 
-          {/* Panel filtrable de auto-evaluaciones habilitadas (sección 3 del
-              pedido 2026-08-28) — un único juego de filtros alimenta a la vez
-              la gráfica y la tabla de datos de abajo. */}
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-azul">Auto-evaluaciones por Habilitación</h2>
-          </div>
+          {/* Fila superior de 3 columnas (modelo_dashboard.png): medidor de
+              Habilitación, Auto-evaluaciones por Sede y Últimas
+              auto-evaluaciones — reemplaza el grid de 2 columnas anterior. */}
+          {cargandoPanel ? (
+            <div className="mb-4 flex justify-center py-16">
+              <Spinner />
+            </div>
+          ) : (
+            <div className="mb-4 grid grid-cols-1 gap-3 xl:grid-cols-3">
+              <Card className="p-4">
+                <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Auto-evaluaciones por Habilitación</h3>
+                <p className="mb-1 text-xs text-slate-400">
+                  {autoevaluacionesPanel.length.toLocaleString()} con los filtros activos
+                </p>
+                <div className="relative">
+                  <ResponsiveContainer width="100%" height={130}>
+                    <PieChart>
+                      <Pie
+                        data={datosGauge}
+                        dataKey="value"
+                        cx="50%"
+                        cy="100%"
+                        startAngle={180}
+                        endAngle={0}
+                        innerRadius="70%"
+                        outerRadius="100%"
+                        paddingAngle={totalGauge > 0 ? 2 : 0}
+                        isAnimationActive={false}
+                      >
+                        {totalGauge > 0 ? (
+                          [
+                            <Cell key="hab" fill="#059669" />,
+                            <Cell key="nohab" fill="#cbd5e1" />,
+                          ]
+                        ) : (
+                          <Cell key="vacio" fill="#e2e8f0" />
+                        )}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center">
+                    <Building2 size={18} className="mb-0.5 text-azul" />
+                    <span className="text-lg font-bold text-slate-800">{totalGauge > 0 ? `${pctHabilitadasGauge}%` : '—'}</span>
+                  </div>
+                </div>
+                <div className="mt-1 flex items-center justify-center gap-4 text-xs">
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    Habilitadas {totalGauge > 0 ? pctHabilitadasGauge : 0}%
+                  </span>
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+                    No habilitadas {totalGauge > 0 ? 100 - pctHabilitadasGauge : 0}%
+                  </span>
+                </div>
+                {sedes.length > 0 && (
+                  <div className="mt-3 flex flex-wrap justify-center gap-3 border-t border-slate-100 pt-2">
+                    {sedes.map((s) => (
+                      <span key={s.id} className="flex flex-col items-center gap-0.5 text-[10px] text-slate-500">
+                        <Building2 size={14} className="text-slate-400" />
+                        {s.nombre}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-4">
+                <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Auto-evaluaciones por Sede</h3>
+                <p className="mb-3 text-xs text-slate-400">
+                  {autoevaluacionesPanel.length.toLocaleString()} auto-evaluaciones con los filtros activos
+                </p>
+                {habilitadasPorSede.length === 0 ? (
+                  <p className="py-8 text-center text-xs text-slate-400">
+                    No hay auto-evaluaciones para los filtros seleccionados.
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={habilitadasPorSede} margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="sede" tick={{ fontSize: 11, fill: '#334155' }} axisLine={false} tickLine={false} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                      <Tooltip content={<TooltipGrafica />} cursor={{ fill: '#f1f5f9' }} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="habilitadas" name="Habilitadas" fill="#0284c7" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                      <Bar dataKey="noHabilitadas" name="No habilitadas" fill="#cbd5e1" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </Card>
+
+              <Card className="p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-700">Últimas auto-evaluaciones</h3>
+                  <button onClick={() => navigate('/historial')} className="text-xs font-medium text-azul2 hover:underline">
+                    Ver todas
+                  </button>
+                </div>
+                {!resumen?.recientes.length ? (
+                  <p className="py-4 text-center text-xs text-slate-400">
+                    Todavía no hay auto-evaluaciones registradas{sedeFiltro ? ' para esta sede' : ''}.
+                  </p>
+                ) : (
+                  // Columnas de ancho fijo (grid, no flex justify-between) para
+                  // que Servicio/Usuario/Estado/Fecha queden alineados entre
+                  // filas sin importar cuánto texto tenga cada una — antes cada
+                  // fila repartía el espacio sobrante distinto según el largo
+                  // del nombre del servicio (ver imagen-1 del pedido 2026-08-28).
+                  <div className="divide-y divide-slate-100">
+                    {resumen.recientes.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => navigate(`/nueva/${r.id}`)}
+                        className="grid w-full grid-cols-[1fr_110px_70px_70px] items-center gap-2 py-1.5 text-left text-xs hover:bg-slate-50"
+                      >
+                        <span className="truncate font-medium text-slate-700">
+                          {r.servicio?.nombre ?? 'Servicio sin definir'}
+                        </span>
+                        <span className="truncate text-slate-500">{r.usuario?.nombre ?? '—'}</span>
+                        <span className={r.estado === 'borrador' ? 'text-amber-600' : 'text-emerald-600'}>
+                          {r.estado === 'borrador' ? 'Borrador' : 'Finalizada'}
+                        </span>
+                        <span className="text-slate-400">{r.fecha}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          )}
 
           {/* flex-nowrap + overflow-x-auto: los 5 filtros quedan siempre en
               una sola línea (punto 9 del pedido 2026-08-28), con scroll
@@ -642,361 +786,307 @@ export default function Dashboard() {
             </Boton>
           </FilterBar>
 
-          {cargandoPanel ? (
-            <div className="flex justify-center py-16">
-              <Spinner />
-            </div>
-          ) : (
-            <>
-              {/* Últimas auto-evaluaciones al lado de Habilitadas por Sede
-                  (pedido 2026-09-02, punto 3) en vez de una fila propia
-                  arriba — mismo alto de fila, aprovecha el ancho completo. */}
-              <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <Card className="p-4">
-                  <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Habilitadas por Sede</h3>
-                  <p className="mb-3 text-xs text-slate-400">
-                    {autoevaluacionesPanel.length.toLocaleString()} auto-evaluaciones con los filtros activos
-                  </p>
-                  {habilitadasPorSede.length === 0 ? (
-                    <p className="py-8 text-center text-xs text-slate-400">
-                      No hay auto-evaluaciones para los filtros seleccionados.
-                    </p>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={habilitadasPorSede} margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                        <XAxis dataKey="sede" tick={{ fontSize: 11, fill: '#334155' }} axisLine={false} tickLine={false} />
-                        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                        <Tooltip content={<TooltipGrafica />} cursor={{ fill: '#f1f5f9' }} />
-                        <Legend wrapperStyle={{ fontSize: 11 }} />
-                        <Bar dataKey="habilitadas" name="Habilitadas" fill="#0284c7" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
-                        <Bar dataKey="noHabilitadas" name="No habilitadas" fill="#cbd5e1" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
+          {/* Tabla de detalle + mapa de calor a la izquierda, catálogo de
+              la resolución como panel lateral a la derecha (modelo_dashboard.png:
+              "Catálogos ... en cifras" va al lado de la tabla, no en una fila
+              propia de ancho completo como antes). */}
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+            <div className="flex flex-col gap-3 xl:col-span-2">
+              {cargandoPanel ? (
+                <Card className="flex justify-center py-16">
+                  <Spinner />
                 </Card>
-
-                <Card className="p-4">
-                  <h3 className="mb-2 text-sm font-semibold text-slate-700">Últimas auto-evaluaciones</h3>
-                  {!resumen?.recientes.length ? (
-                    <p className="py-4 text-center text-xs text-slate-400">
-                      Todavía no hay auto-evaluaciones registradas{sedeFiltro ? ' para esta sede' : ''}.
+              ) : (
+                <>
+                  <Card>
+                    <h3 className="mb-1 text-sm font-semibold text-slate-700">Detalle de auto-evaluaciones</h3>
+                    <p className="mb-3 text-xs text-slate-500">
+                      % Cumple/No Cumple/No Aplica calculado sobre las preguntas ya respondidas de cada fila. Click en{' '}
+                      <ChevronRight size={11} className="inline" /> para ver el desglose por Estándar.
                     </p>
-                  ) : (
-                    // Columnas de ancho fijo (grid, no flex justify-between) para
-                    // que Servicio/Usuario/Estado/Fecha queden alineados entre
-                    // filas sin importar cuánto texto tenga cada una — antes cada
-                    // fila repartía el espacio sobrante distinto según el largo
-                    // del nombre del servicio (ver imagen-1 del pedido 2026-08-28).
-                    <div className="divide-y divide-slate-100">
-                      {resumen.recientes.map((r) => (
-                        <button
-                          key={r.id}
-                          onClick={() => navigate(`/nueva/${r.id}`)}
-                          className="grid w-full grid-cols-[1fr_110px_70px_70px] items-center gap-2 py-1.5 text-left text-xs hover:bg-slate-50"
-                        >
-                          <span className="truncate font-medium text-slate-700">
-                            {r.servicio?.nombre ?? 'Servicio sin definir'}
-                          </span>
-                          <span className="truncate text-slate-500">{r.usuario?.nombre ?? '—'}</span>
-                          <span className={r.estado === 'borrador' ? 'text-amber-600' : 'text-emerald-600'}>
-                            {r.estado === 'borrador' ? 'Borrador' : 'Finalizada'}
-                          </span>
-                          <span className="text-slate-400">{r.fecha}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              </div>
-
-              <Card className="mb-4">
-                <h3 className="mb-1 text-sm font-semibold text-slate-700">Detalle de auto-evaluaciones</h3>
-                <p className="mb-3 text-xs text-slate-500">
-                  % Cumple/No Cumple/No Aplica calculado sobre las preguntas ya respondidas de cada fila. Click en{' '}
-                  <ChevronRight size={11} className="inline" /> para ver el desglose por Estándar.
-                </p>
-                {autoevaluacionesPanel.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-slate-400">
-                    No hay auto-evaluaciones para los filtros seleccionados.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-azul text-left text-white">
-                          <th className="py-1 pr-2" />
-                          <th className="py-1 pr-3">Fecha</th>
-                          <th className="py-1 pr-3">Empresa</th>
-                          <th className="py-1 pr-3">Sede</th>
-                          <th className="py-1 pr-3">Servicio</th>
-                          <th className="py-1 pr-3">Usuario</th>
-                          <th className="py-1 pr-3">Estado</th>
-                          <th className="py-1 pr-3">Habilitada</th>
-                          <th className="py-1 pr-3 text-right">Cumple</th>
-                          <th className="py-1 pr-3 text-right">No Cumple</th>
-                          <th className="py-1 pr-3 text-right">No Aplica</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {autoevaluacionesPanel.map((a) => {
-                          const t = totalesPorFila[a.id] ?? conteoVacio()
-                          const expandida = filaExpandida === a.id
-                          return (
-                            <Fragment key={a.id}>
-                              {/* Fila resaltada mientras su desglose está
-                                  abierto (pedido 2026-09-02, punto 4) — antes
-                                  no había forma de saber a simple vista cuál
-                                  fila generó el panel expandido de abajo. */}
-                              <tr
-                                className={`cursor-pointer ${expandida ? 'bg-sky-50 hover:bg-sky-100' : 'hover:bg-slate-50'}`}
-                                onClick={() => navigate(`/nueva/${a.id}`)}
-                              >
-                                <td className="py-1 pr-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setFilaExpandida(expandida ? null : a.id)
-                                    }}
-                                    className="flex items-center justify-center text-slate-400 hover:text-azul"
-                                    title="Ver desglose por Estándar"
-                                  >
-                                    {expandida ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                  </button>
-                                </td>
-                                <td className="py-1 pr-3">{a.fecha}</td>
-                                <td className="py-1 pr-3">{a.empresa?.nombre ?? '—'}</td>
-                                <td className="py-1 pr-3">{a.sede?.nombre ?? '—'}</td>
-                                <td className="py-1 pr-3 font-medium text-slate-700">{a.servicio?.nombre ?? '—'}</td>
-                                <td className="py-1 pr-3">{a.usuario?.nombre ?? '—'}</td>
-                                <td className="py-1 pr-3">
-                                  <Badge tono={a.estado === 'finalizada' ? 'exito' : 'advertencia'}>
-                                    {a.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
-                                  </Badge>
-                                </td>
-                                <td className="py-1 pr-3">
-                                  {a.habilitada ? <Badge tono="info">Habilitada</Badge> : <span className="text-xs text-slate-400">—</span>}
-                                </td>
-                                <td className="py-1 pr-3 text-right text-emerald-600">
-                                  {t.cumple} ({porcentaje(t.cumple, t.total)}%)
-                                </td>
-                                <td className="py-1 pr-3 text-right text-red-600">
-                                  {t.no_cumple} ({porcentaje(t.no_cumple, t.total)}%)
-                                </td>
-                                <td className="py-1 pr-3 text-right text-slate-500">
-                                  {t.no_aplica} ({porcentaje(t.no_aplica, t.total)}%)
-                                </td>
-                              </tr>
-                              {expandida && (
-                                <tr className="bg-sky-50/60">
-                                  {/* Sangría hacia el interior + borde izquierdo de acento:
-                                      deja claro que este bloque es "hijo" de la fila resaltada
-                                      de arriba, no una fila más de la tabla. */}
-                                  <td colSpan={11} className="py-2 pl-8 pr-4">
-                                    <div className="border-l-2 border-azul/30 pl-3">
-                                      <DesgloseEstandar datos={desglosePorEstandar[a.id] ?? {}} />
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </Fragment>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
-
-              {/* Mapa de calor Sede × Estándar (pedido 2026-09-02): de un
-                  vistazo detecta en qué combinación Sede/Estándar se
-                  concentran los incumplimientos, sobre el mismo panel ya
-                  filtrado de arriba. Clic en una celda (no hover, mismo
-                  criterio que el resto de la app) abre el detalle exacto. */}
-              {heatmapSedes.length > 0 && heatmapEstandares.length > 0 && (
-                <Card className="mb-4">
-                  <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Mapa de calor — % Cumple por Sede y Estándar</h3>
-                  <p className="mb-3 text-xs text-slate-500">
-                    Verde = alto cumplimiento, rojo = bajo. Clic en una celda para ver el detalle.
-                  </p>
-                  <div className="overflow-x-auto">
-                    <table className="border-separate border-spacing-1 text-xs">
-                      <thead>
-                        <tr>
-                          <th className="sticky left-0 bg-white px-2 py-1 text-left font-medium text-slate-500">Sede</th>
-                          {heatmapEstandares.map((est) => (
-                            <th
-                              key={est}
-                              title={est}
-                              className="min-w-[52px] px-1 py-1 text-center text-[11px] font-medium text-slate-500"
-                            >
-                              {nombreCortoEstandar(est)}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {heatmapSedes.map((sede) => (
-                          <tr key={sede}>
-                            <td className="sticky left-0 whitespace-nowrap bg-white pr-3 py-1 font-medium text-slate-700">
-                              {sede}
-                            </td>
-                            {heatmapEstandares.map((est) => {
-                              const c = heatmapSedeEstandar[sede]?.[est]
-                              const total = c?.total ?? 0
-                              const pct = c ? porcentaje(c.cumple, total) : 0
+                    {autoevaluacionesPanel.length === 0 ? (
+                      <p className="py-6 text-center text-xs text-slate-400">
+                        No hay auto-evaluaciones para los filtros seleccionados.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="bg-azul text-left text-white">
+                              <th className="py-1 pr-2" />
+                              <th className="py-1 pr-3">Fecha</th>
+                              <th className="py-1 pr-3">Empresa</th>
+                              <th className="py-1 pr-3">Sede</th>
+                              <th className="py-1 pr-3">Servicio</th>
+                              <th className="py-1 pr-3">Usuario</th>
+                              <th className="py-1 pr-3">Estado</th>
+                              <th className="py-1 pr-3">Habilitada</th>
+                              <th className="py-1 pr-3 text-right">Cumple</th>
+                              <th className="py-1 pr-3 text-right">No Cumple</th>
+                              <th className="py-1 pr-3 text-right">No Aplica</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {autoevaluacionesPanel.map((a) => {
+                              const t = totalesPorFila[a.id] ?? conteoVacio()
+                              const expandida = filaExpandida === a.id
                               return (
-                                <td key={est} className="p-0 text-center">
-                                  <button
-                                    type="button"
-                                    disabled={total === 0}
-                                    onClick={() => setCeldaHeatmap({ sede, estandar: est })}
-                                    title={`${sede} · ${est}: ${total === 0 ? 'sin datos respondidas' : `${pct}% Cumple`}`}
-                                    style={{ background: total === 0 ? '#f1f5f9' : colorCalor(pct) }}
-                                    className={`flex h-8 w-[52px] items-center justify-center rounded-md text-xs font-semibold transition-transform ${
-                                      total === 0 ? 'text-slate-300' : 'text-white hover:scale-105'
-                                    }`}
+                                <Fragment key={a.id}>
+                                  {/* Fila resaltada mientras su desglose está
+                                      abierto (pedido 2026-09-02, punto 4) — antes
+                                      no había forma de saber a simple vista cuál
+                                      fila generó el panel expandido de abajo. */}
+                                  <tr
+                                    className={`cursor-pointer ${expandida ? 'bg-sky-50 hover:bg-sky-100' : 'hover:bg-slate-50'}`}
+                                    onClick={() => navigate(`/nueva/${a.id}`)}
                                   >
-                                    {total === 0 ? '—' : `${pct}%`}
-                                  </button>
-                                </td>
+                                    <td className="py-1 pr-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setFilaExpandida(expandida ? null : a.id)
+                                        }}
+                                        className="flex items-center justify-center text-slate-400 hover:text-azul"
+                                        title="Ver desglose por Estándar"
+                                      >
+                                        {expandida ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                      </button>
+                                    </td>
+                                    <td className="py-1 pr-3">{a.fecha}</td>
+                                    <td className="py-1 pr-3">{a.empresa?.nombre ?? '—'}</td>
+                                    <td className="py-1 pr-3">{a.sede?.nombre ?? '—'}</td>
+                                    <td className="py-1 pr-3 font-medium text-slate-700">{a.servicio?.nombre ?? '—'}</td>
+                                    <td className="py-1 pr-3">{a.usuario?.nombre ?? '—'}</td>
+                                    <td className="py-1 pr-3">
+                                      <Badge tono={a.estado === 'finalizada' ? 'exito' : 'advertencia'}>
+                                        {a.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
+                                      </Badge>
+                                    </td>
+                                    <td className="py-1 pr-3">
+                                      {a.habilitada ? <Badge tono="info">Habilitada</Badge> : <span className="text-xs text-slate-400">—</span>}
+                                    </td>
+                                    <td className="py-1 pr-3 text-right text-emerald-600">
+                                      {t.cumple} ({porcentaje(t.cumple, t.total)}%)
+                                    </td>
+                                    <td className="py-1 pr-3 text-right text-red-600">
+                                      {t.no_cumple} ({porcentaje(t.no_cumple, t.total)}%)
+                                    </td>
+                                    <td className="py-1 pr-3 text-right text-slate-500">
+                                      {t.no_aplica} ({porcentaje(t.no_aplica, t.total)}%)
+                                    </td>
+                                  </tr>
+                                  {expandida && (
+                                    <tr className="bg-sky-50/60">
+                                      {/* Sangría hacia el interior + borde izquierdo de acento:
+                                          deja claro que este bloque es "hijo" de la fila resaltada
+                                          de arriba, no una fila más de la tabla. */}
+                                      <td colSpan={11} className="py-2 pl-8 pr-4">
+                                        <div className="border-l-2 border-azul/30 pl-3">
+                                          <DesgloseEstandar datos={desglosePorEstandar[a.id] ?? {}} />
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </Fragment>
                               )
                             })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </Card>
+
+                  {/* Mapa de calor Sede × Estándar (pedido 2026-09-02): de un
+                      vistazo detecta en qué combinación Sede/Estándar se
+                      concentran los incumplimientos, sobre el mismo panel ya
+                      filtrado de arriba. Clic en una celda (no hover, mismo
+                      criterio que el resto de la app) abre el detalle exacto. */}
+                  {heatmapSedes.length > 0 && heatmapEstandares.length > 0 && (
+                    <Card>
+                      <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Mapa de calor — % Cumple por Sede y Estándar</h3>
+                      <p className="mb-3 text-xs text-slate-500">
+                        Verde = alto cumplimiento, rojo = bajo. Clic en una celda para ver el detalle.
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="border-separate border-spacing-1 text-xs">
+                          <thead>
+                            <tr>
+                              <th className="sticky left-0 bg-white px-2 py-1 text-left font-medium text-slate-500">Sede</th>
+                              {heatmapEstandares.map((est) => (
+                                <th
+                                  key={est}
+                                  title={est}
+                                  className="min-w-[52px] px-1 py-1 text-center text-[11px] font-medium text-slate-500"
+                                >
+                                  {nombreCortoEstandar(est)}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {heatmapSedes.map((sede) => (
+                              <tr key={sede}>
+                                <td className="sticky left-0 whitespace-nowrap bg-white pr-3 py-1 font-medium text-slate-700">
+                                  {sede}
+                                </td>
+                                {heatmapEstandares.map((est) => {
+                                  const c = heatmapSedeEstandar[sede]?.[est]
+                                  const total = c?.total ?? 0
+                                  const pct = c ? porcentaje(c.cumple, total) : 0
+                                  return (
+                                    <td key={est} className="p-0 text-center">
+                                      <button
+                                        type="button"
+                                        disabled={total === 0}
+                                        onClick={() => setCeldaHeatmap({ sede, estandar: est })}
+                                        title={`${sede} · ${est}: ${total === 0 ? 'sin datos respondidas' : `${pct}% Cumple`}`}
+                                        style={{ background: total === 0 ? '#f1f5f9' : colorCalor(pct) }}
+                                        className={`flex h-8 w-[52px] items-center justify-center rounded-md text-xs font-semibold transition-transform ${
+                                          total === 0 ? 'text-slate-300' : 'text-white hover:scale-105'
+                                        }`}
+                                      >
+                                        {total === 0 ? '—' : `${pct}%`}
+                                      </button>
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  )}
+                </>
               )}
-            </>
-          )}
-
-          {/* Gráficas del catálogo de la resolución elegida — independientes
-              de la Sede (son metadatos del catálogo, no datos de
-              auto-evaluaciones). El filtro de Grupo acota Estándar/
-              Complejidad en vivo. */}
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-azul">Catálogo {RESOLUCIONES[resolucion].labelCorto} en cifras</h2>
-          </div>
-
-          {cargandoGraficas ? (
-            <div className="flex justify-center py-16">
-              <Spinner />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-              <Card className="p-4">
-                <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Servicios por Grupo</h3>
-                <p className="mb-3 text-xs text-slate-400">Columna G — {serviciosPorGrupo.reduce((a, s) => a + s.cantidad, 0)} servicios</p>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={serviciosPorGrupo} layout="vertical" margin={{ top: 4, right: 20, bottom: 4, left: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                    <YAxis
-                      type="category"
-                      dataKey="grupo"
-                      width={110}
-                      tick={{ fontSize: 9, fill: '#334155' }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={nombreCortoGrupo}
-                    />
-                    <Tooltip content={<TooltipGrafica />} cursor={{ fill: '#f1f5f9' }} />
-                    <Bar dataKey="cantidad" name="Servicios" radius={[0, 8, 8, 0]} maxBarSize={20} isAnimationActive={false}>
-                      {serviciosPorGrupo.map((s, i) => (
-                        <Cell key={i} fill={s.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
 
-              <Card className="p-4">
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-700">Criterios por Estándar</h3>
-                    <p className="text-xs text-slate-400">{criteriosFiltrados.length.toLocaleString()} criterios</p>
-                  </div>
-                  <select
-                    value={grupoFiltroChart}
-                    onChange={(e) => setGrupoFiltroChart(e.target.value ? Number(e.target.value) : '')}
-                    className="campo w-36 shrink-0 py-1 text-xs"
-                  >
-                    <option value="">Todos los grupos</option>
-                    {grupos.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {nombreCortoGrupo(g.nombre)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <ResponsiveContainer width="100%" height={200}>
-                  <RadarChart data={criteriosPorEstandar} outerRadius="72%">
-                    <PolarGrid stroke="#e2e8f0" />
-                    <PolarAngleAxis dataKey="estandar" tick={{ fontSize: 9, fill: '#334155' }} />
-                    <PolarRadiusAxis tick={{ fontSize: 9, fill: '#94a3b8' }} allowDecimals={false} />
-                    <Radar
-                      dataKey="cantidad"
-                      name="Criterios"
-                      stroke="#0D2D6B"
-                      fill="#0D2D6B"
-                      fillOpacity={0.35}
-                      strokeWidth={2}
-                      animationDuration={800}
-                    />
-                    <Tooltip content={<TooltipGrafica />} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </Card>
+            {/* Panel lateral "Catálogo ... en cifras" — independiente de la
+                Sede (son metadatos del catálogo, no datos de
+                auto-evaluaciones). El filtro de Grupo acota Estándar/
+                Complejidad en vivo. */}
+            <div className="flex flex-col gap-3 xl:col-span-1">
+              <h2 className="text-sm font-semibold text-azul">Catálogo {RESOLUCIONES[resolucion].labelCorto} en cifras</h2>
 
-              <Card className="p-4">
-                <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Criterios por Complejidad</h3>
-                <p className="mb-2 text-xs text-slate-400">
-                  {grupoFiltroChart ? grupos.find((g) => g.id === grupoFiltroChart)?.nombre : 'Todos los grupos'}
-                </p>
-                <div className="relative">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie
-                        data={criteriosPorComplejidad}
-                        dataKey="valor"
-                        nameKey="nombre"
-                        innerRadius="52%"
-                        outerRadius="80%"
-                        paddingAngle={2}
-                        animationDuration={800}
+              {cargandoGraficas ? (
+                <Card className="flex justify-center py-16">
+                  <Spinner />
+                </Card>
+              ) : (
+                <>
+                  <Card className="p-4">
+                    <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Servicios por Grupo</h3>
+                    <p className="mb-3 text-xs text-slate-400">Columna G — {serviciosPorGrupo.reduce((a, s) => a + s.cantidad, 0)} servicios</p>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={serviciosPorGrupo} layout="vertical" margin={{ top: 4, right: 20, bottom: 4, left: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                        <YAxis
+                          type="category"
+                          dataKey="grupo"
+                          width={110}
+                          tick={{ fontSize: 9, fill: '#334155' }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={nombreCortoGrupo}
+                        />
+                        <Tooltip content={<TooltipGrafica />} cursor={{ fill: '#f1f5f9' }} />
+                        <Bar dataKey="cantidad" name="Servicios" radius={[0, 8, 8, 0]} maxBarSize={20} isAnimationActive={false}>
+                          {serviciosPorGrupo.map((s, i) => (
+                            <Cell key={i} fill={s.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Card>
+
+                  <Card className="p-4">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-700">Criterios por Estándar</h3>
+                        <p className="text-xs text-slate-400">{criteriosFiltrados.length.toLocaleString()} criterios</p>
+                      </div>
+                      <select
+                        value={grupoFiltroChart}
+                        onChange={(e) => setGrupoFiltroChart(e.target.value ? Number(e.target.value) : '')}
+                        className="campo w-32 shrink-0 py-1 text-xs"
                       >
-                        {criteriosPorComplejidad.map((_, i) => (
-                          <Cell key={i} fill={PALETA_GRUPOS[i % PALETA_GRUPOS.length]} stroke="#fff" strokeWidth={1} />
+                        <option value="">Todos los grupos</option>
+                        {grupos.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {nombreCortoGrupo(g.nombre)}
+                          </option>
                         ))}
-                      </Pie>
-                      <Tooltip content={<TooltipGrafica />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-x-0 top-[68px] flex flex-col items-center">
-                    <span className="text-xl font-bold text-azul">{criteriosFiltrados.length}</span>
-                    <span className="text-[10px] text-slate-400">criterios</span>
-                  </div>
-                </div>
-                {/* Leyenda propia en vez de <Legend> de Recharts: las frases
-                    de Complejidad son largas y en varias líneas de 10px se
-                    volvían ilegibles — lista vertical con scroll a 12px. */}
-                <div className="mt-2 flex max-h-28 flex-col gap-1 overflow-y-auto pr-1">
-                  {criteriosPorComplejidad.map((c, i) => (
-                    <div key={c.nombre} className="flex items-center gap-1.5 text-xs" title={c.nombre}>
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ background: PALETA_GRUPOS[i % PALETA_GRUPOS.length] }}
-                      />
-                      <span className="truncate text-slate-600">{c.nombre}</span>
-                      <span className="ml-auto shrink-0 font-medium text-slate-400">{c.valor}</span>
+                      </select>
                     </div>
-                  ))}
-                </div>
-              </Card>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <RadarChart data={criteriosPorEstandar} outerRadius="72%">
+                        <PolarGrid stroke="#e2e8f0" />
+                        <PolarAngleAxis dataKey="estandar" tick={{ fontSize: 9, fill: '#334155' }} />
+                        <PolarRadiusAxis tick={{ fontSize: 9, fill: '#94a3b8' }} allowDecimals={false} />
+                        <Radar
+                          dataKey="cantidad"
+                          name="Criterios"
+                          stroke="#0D2D6B"
+                          fill="#0D2D6B"
+                          fillOpacity={0.35}
+                          strokeWidth={2}
+                          animationDuration={800}
+                        />
+                        <Tooltip content={<TooltipGrafica />} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </Card>
+
+                  <Card className="p-4">
+                    <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Distribución de Criterios</h3>
+                    <p className="mb-2 text-xs text-slate-400">
+                      {grupoFiltroChart ? grupos.find((g) => g.id === grupoFiltroChart)?.nombre : 'Todos los grupos'}
+                    </p>
+                    <div className="relative">
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie
+                            data={criteriosPorComplejidad}
+                            dataKey="valor"
+                            nameKey="nombre"
+                            innerRadius="52%"
+                            outerRadius="80%"
+                            paddingAngle={2}
+                            animationDuration={800}
+                          >
+                            {criteriosPorComplejidad.map((_, i) => (
+                              <Cell key={i} fill={PALETA_GRUPOS[i % PALETA_GRUPOS.length]} stroke="#fff" strokeWidth={1} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<TooltipGrafica />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="pointer-events-none absolute inset-x-0 top-[68px] flex flex-col items-center">
+                        <span className="text-xl font-bold text-azul">{criteriosFiltrados.length}</span>
+                        <span className="text-[10px] text-slate-400">criterios</span>
+                      </div>
+                    </div>
+                    {/* Leyenda propia en vez de <Legend> de Recharts: las frases
+                        de Complejidad son largas y en varias líneas de 10px se
+                        volvían ilegibles — lista vertical con scroll a 12px. */}
+                    <div className="mt-2 flex max-h-28 flex-col gap-1 overflow-y-auto pr-1">
+                      {criteriosPorComplejidad.map((c, i) => (
+                        <div key={c.nombre} className="flex items-center gap-1.5 text-xs" title={c.nombre}>
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ background: PALETA_GRUPOS[i % PALETA_GRUPOS.length] }}
+                          />
+                          <span className="truncate text-slate-600">{c.nombre}</span>
+                          <span className="ml-auto shrink-0 font-medium text-slate-400">{c.valor}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </>
+              )}
             </div>
-          )}
+          </div>
         </>
       )}
 

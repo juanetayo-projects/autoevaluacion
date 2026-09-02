@@ -1,26 +1,41 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 
-// --- Card de métrica con degradado institucional ---
+// --- Card de métrica: tarjeta blanca con insignia circular de color
+// (pedido 2026-09-02: adaptación clara de modelo_dashboard.png, que usa
+// tarjetas blancas con ícono de color en vez del degradado azul sólido
+// anterior — cada tono identifica el tipo de métrica de un vistazo). ---
 export function MetricCard({
   titulo,
   valor,
   icono,
   sub,
+  tono = 'azul',
 }: {
   titulo: string
   valor: ReactNode
   icono?: ReactNode
   sub?: string
+  tono?: 'exito' | 'peligro' | 'advertencia' | 'morado' | 'info' | 'azul'
 }) {
+  const insignia = {
+    exito: 'bg-emerald-500',
+    peligro: 'bg-red-500',
+    advertencia: 'bg-amber-500',
+    morado: 'bg-violet-500',
+    info: 'bg-sky-500',
+    azul: 'bg-azul',
+  }[tono]
   return (
-    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-azul to-azul2 p-3 text-white shadow-lg shadow-azul/20">
-      <div className="flex items-center justify-between">
-        <span className="text-xs opacity-80">{titulo}</span>
-        {icono}
+    <div className="rounded-2xl border border-slate-300 bg-white p-3 shadow-md">
+      <div className="flex items-center gap-2">
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white ${insignia}`}>
+          {icono}
+        </span>
+        <span className="text-xs font-medium text-slate-500">{titulo}</span>
       </div>
-      <div className="mt-1 text-xl font-bold">{valor}</div>
-      {sub && <div className="mt-0.5 text-[11px] opacity-75">{sub}</div>}
+      <div className="mt-2 text-xl font-bold text-slate-800">{valor}</div>
+      {sub && <div className="mt-0.5 text-[11px] text-slate-400">{sub}</div>}
     </div>
   )
 }
