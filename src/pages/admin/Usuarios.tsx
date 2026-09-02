@@ -199,6 +199,7 @@ function ModalResetPassword({
   invocar: (body: Record<string, unknown>) => Promise<unknown>
 }) {
   const [password, setPassword] = useState('')
+  const [confirmar, setConfirmar] = useState('')
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [ok, setOk] = useState(false)
@@ -207,6 +208,10 @@ function ModalResetPassword({
     e.preventDefault()
     if (!usuario) return
     setError('')
+    if (password !== confirmar) {
+      setError('Las contraseñas no coinciden.')
+      return
+    }
     setEnviando(true)
     try {
       await invocar({ accion: 'reset', id: usuario.id, password })
@@ -220,6 +225,7 @@ function ModalResetPassword({
 
   function cerrar() {
     setPassword('')
+    setConfirmar('')
     setError('')
     setOk(false)
     onClose()
@@ -238,6 +244,16 @@ function ModalResetPassword({
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="campo"
+            />
+          </label>
+          <label className="text-xs">
+            <span className="mb-1 block font-medium text-slate-600">Confirmar nueva contraseña</span>
+            <input
+              required
+              minLength={6}
+              value={confirmar}
+              onChange={(e) => setConfirmar(e.target.value)}
               className="campo"
             />
           </label>
