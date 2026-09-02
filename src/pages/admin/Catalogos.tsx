@@ -186,7 +186,7 @@ function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
 
   return (
     <Card>
-      <p className="mb-4 text-xs text-slate-500">
+      <p className="mb-4 text-sm text-slate-500">
         Catálogo de servicios de la {cfg.label} (tabla {cfg.tablaServicios}). Este es el catálogo que alimenta el
         selector "Servicio" al crear una auto-evaluación con esta resolución — no tiene Sede asociada, la Sede solo
         se captura al iniciar la auto-evaluación.
@@ -555,7 +555,7 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-500">
+        <p className="text-sm text-slate-500">
           Tabla maestra de criterios de la {cfg.label} (tabla {cfg.tablaCriterios}) — {total.toLocaleString()}{' '}
           registros.
         </p>
@@ -1067,7 +1067,7 @@ function CatalogoSimpleTab({
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-500">{descripcion}</p>
+        <p className="text-sm text-slate-500">{descripcion}</p>
         <Boton onClick={() => setEditando('nuevo')}>Nueva {etiquetaSingular}</Boton>
       </div>
 
@@ -1252,7 +1252,7 @@ function SedesTab() {
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-slate-500">
+        <p className="text-sm text-slate-500">
           Sedes de la Empresa (Torre, Urgencias, Centro de Especialistas). Catálogo independiente usado por la
           cabecera de Nueva auto-evaluación.
         </p>

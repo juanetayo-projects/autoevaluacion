@@ -5,7 +5,6 @@ import Layout from './components/layout/Layout'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
-import DashboardOpciones from './pages/DashboardOpciones'
 import NuevaAutoevaluacion from './pages/NuevaAutoevaluacion'
 import Historial from './pages/Historial'
 import Catalogos from './pages/admin/Catalogos'
@@ -45,14 +44,6 @@ export default function App() {
             element={
               <Protegido>
                 <Dashboard />
-              </Protegido>
-            }
-          />
-          <Route
-            path="/dashboard-opciones"
-            element={
-              <Protegido>
-                <DashboardOpciones />
               </Protegido>
             }
           />

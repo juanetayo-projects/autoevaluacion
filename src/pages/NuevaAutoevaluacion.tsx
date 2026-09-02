@@ -718,7 +718,10 @@ export default function NuevaAutoevaluacion() {
             <Campo label="Fecha inicio">
               <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} className="campo py-1.5" />
             </Campo>
-            <Campo label="Servicio" className="sm:col-span-2">
+            {/* Servicio al lado de Fecha inicio (pedido 2026-09-02, punto 1) en
+                vez de fila propia a ancho completo — evita scroll vertical
+                extra en el formulario de cabecera. */}
+            <Campo label="Servicio">
               <select
                 value={servicioResId ?? ''}
                 onChange={(e) => alSeleccionarServicio(Number(e.target.value))}
@@ -976,7 +979,7 @@ export default function NuevaAutoevaluacion() {
             Descripción del servicio
           </span>
           {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
-            <div className="max-h-32 overflow-y-auto rounded-lg bg-white/60 p-1.5 pr-2 text-xs leading-snug text-slate-600">
+            <div className="max-h-32 overflow-y-auto rounded-lg bg-white/60 p-1.5 pr-2 text-sm leading-relaxed text-slate-600">
               {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
               {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
             </div>
@@ -1285,7 +1288,7 @@ function FilaCriterio({
           disabled={soloLectura}
           defaultValue={respuesta?.observacion ?? ''}
           onBlur={(e) => onObservacion(e.target.value)}
-          className="campo min-w-[180px] flex-1 text-xs"
+          className="campo min-w-[180px] flex-1 text-sm"
         />
       </div>
     </div>

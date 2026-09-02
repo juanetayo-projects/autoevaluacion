@@ -20,7 +20,7 @@ import {
   Legend,
 } from 'recharts'
 import { supabase } from '../lib/supabase'
-import { Badge, Boton, Card, FilterBar, MetricCard, PageHeader, Spinner } from '../components/ui/ui'
+import { Badge, Boton, Card, FilterBar, MetricCard, Modal, PageHeader, Spinner } from '../components/ui/ui'
 import { RESOLUCIONES, RESOLUCION_KEYS, type ResolucionKey } from '../domain/resoluciones'
 
 type ResumenAutoevaluacion = {
@@ -81,6 +81,24 @@ function sumarRespuesta(c: ConteoRespuestas, r: string) {
 }
 function porcentaje(n: number, total: number) {
   return total > 0 ? Math.round((n / total) * 100) : 0
+}
+
+// Color de una celda del mapa de calor según % Cumple: rojo (0%) -> ámbar
+// (50%) -> verde (100%), interpolando el matiz HSL. Saturación/luminosidad
+// fijas para que el texto blanco siempre tenga suficiente contraste.
+function colorCalor(pct: number) {
+  const hue = Math.round((pct / 100) * 130)
+  return `hsl(${hue}deg 68% 42%)`
+}
+
+// Encabezado corto de columna del heatmap: quita el prefijo "Estándar de "
+// (Res.1732/Res.3100) y, para las secciones largas de ISO 9001 ("8.2
+// Requisitos para los productos y servicios"), deja solo el numeral con el
+// texto completo disponible en el title del <th>.
+function nombreCortoEstandar(estandar: string) {
+  const sinPrefijo = estandar.replace(/^Estándar de /, '')
+  const m = sinPrefijo.match(/^(\d+(?:\.\d+)*)\s+(.+)$/)
+  return m ? m[1] : sinPrefijo
 }
 
 // Mismos colores que el resto de la app (NuevaAutoevaluacion.tsx,
@@ -148,6 +166,12 @@ export default function Dashboard() {
   const [totalesPorFila, setTotalesPorFila] = useState<Record<string, ConteoRespuestas>>({})
   const [desglosePorEstandar, setDesglosePorEstandar] = useState<Record<string, Record<string, ConteoRespuestas>>>({})
   const [filaExpandida, setFilaExpandida] = useState<string | null>(null)
+  // Mapa de calor Sede × Estándar (% Cumple) sobre el mismo panel filtrado —
+  // sede -> estandar -> conteo. celdaHeatmap controla el popover de detalle
+  // al hacer clic en una celda (clic en vez de hover, igual que el resto de
+  // gráficas con detalle de esta app).
+  const [heatmapSedeEstandar, setHeatmapSedeEstandar] = useState<Record<string, Record<string, ConteoRespuestas>>>({})
+  const [celdaHeatmap, setCeldaHeatmap] = useState<{ sede: string; estandar: string } | null>(null)
 
   useEffect(() => {
     supabase
@@ -209,19 +233,24 @@ export default function Dashboard() {
     const filas = (data as unknown as AutoevaluacionFila[]) ?? []
     setAutoevaluacionesPanel(filas)
     setCargandoPanel(false)
-    await cargarDesglose(filas.map((f) => f.id))
+    await cargarDesglose(filas)
   }
 
   // Trae las respuestas de las auto-evaluaciones filtradas (con el Estándar
   // de su criterio) y las agrega en el cliente — un totalizado general por
-  // fila y otro por Estándar (punto 10). Paginado por el tope de 1.000 filas
-  // del proyecto Supabase, igual que traerTodosLosCriterios().
-  async function cargarDesglose(ids: string[]) {
+  // fila, otro por Estándar (punto 10) y otro por Sede×Estándar (mapa de
+  // calor). Paginado por el tope de 1.000 filas del proyecto Supabase, igual
+  // que traerTodosLosCriterios(). Recibe las filas del panel (no solo los
+  // ids) para poder ubicar la Sede de cada auto-evaluación sin otra consulta.
+  async function cargarDesglose(filasPanel: AutoevaluacionFila[]) {
+    const ids = filasPanel.map((f) => f.id)
     if (ids.length === 0) {
       setTotalesPorFila({})
       setDesglosePorEstandar({})
+      setHeatmapSedeEstandar({})
       return
     }
+    const idASede = new Map(filasPanel.map((f) => [f.id, f.sede?.nombre ?? 'Sin sede']))
     const cfg = RESOLUCIONES[resolucion]
     const columnasDesglose: string = `autoevaluacion_id, respuesta, criterio:${cfg.tablaCriterios}(estandar)`
     const TAMANO_PAGINA = 1000
@@ -239,6 +268,7 @@ export default function Dashboard() {
 
     const totales: Record<string, ConteoRespuestas> = {}
     const porEstandar: Record<string, Record<string, ConteoRespuestas>> = {}
+    const porSedeEstandar: Record<string, Record<string, ConteoRespuestas>> = {}
     for (const f of filas) {
       const estandar = f.criterio?.estandar ?? 'Sin estándar'
       if (!totales[f.autoevaluacion_id]) totales[f.autoevaluacion_id] = conteoVacio()
@@ -247,9 +277,15 @@ export default function Dashboard() {
       if (!porEstandar[f.autoevaluacion_id]) porEstandar[f.autoevaluacion_id] = {}
       if (!porEstandar[f.autoevaluacion_id][estandar]) porEstandar[f.autoevaluacion_id][estandar] = conteoVacio()
       sumarRespuesta(porEstandar[f.autoevaluacion_id][estandar], f.respuesta)
+
+      const sede = idASede.get(f.autoevaluacion_id) ?? 'Sin sede'
+      if (!porSedeEstandar[sede]) porSedeEstandar[sede] = {}
+      if (!porSedeEstandar[sede][estandar]) porSedeEstandar[sede][estandar] = conteoVacio()
+      sumarRespuesta(porSedeEstandar[sede][estandar], f.respuesta)
     }
     setTotalesPorFila(totales)
     setDesglosePorEstandar(porEstandar)
+    setHeatmapSedeEstandar(porSedeEstandar)
   }
 
   const limpiarFiltrosPanel = () => {
@@ -275,6 +311,28 @@ export default function Dashboard() {
     }
     return Array.from(mapa.values()).sort((a, b) => b.habilitadas + b.noHabilitadas - (a.habilitadas + a.noHabilitadas))
   }, [autoevaluacionesPanel])
+
+  // Ejes del mapa de calor Sede × Estándar: sedes en el orden del catálogo
+  // (constante entre resoluciones/filtros); estándares en el orden de
+  // aparición dentro de los datos ya agregados (evita alfabetizar frases
+  // largas de ISO 9001 y mantiene el orden natural del documento fuente).
+  const heatmapSedes = useMemo(
+    () => sedes.map((s) => s.nombre).filter((nombre) => heatmapSedeEstandar[nombre]),
+    [sedes, heatmapSedeEstandar],
+  )
+  const heatmapEstandares = useMemo(() => {
+    const vistos = new Set<string>()
+    const orden: string[] = []
+    for (const sede of Object.keys(heatmapSedeEstandar)) {
+      for (const estandar of Object.keys(heatmapSedeEstandar[sede])) {
+        if (!vistos.has(estandar)) {
+          vistos.add(estandar)
+          orden.push(estandar)
+        }
+      }
+    }
+    return orden.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  }, [heatmapSedeEstandar])
 
   // El proyecto de Supabase tiene un tope de 1.000 filas por consulta
   // (db-max-rows), que un Range header del cliente no puede superar — hay
@@ -649,7 +707,7 @@ export default function Dashboard() {
 
               <Card className="mb-4">
                 <h3 className="mb-1 text-sm font-semibold text-slate-700">Detalle de auto-evaluaciones</h3>
-                <p className="mb-3 text-xs text-slate-400">
+                <p className="mb-3 text-sm text-slate-500">
                   % Cumple/No Cumple/No Aplica calculado sobre las preguntas ya respondidas de cada fila. Click en{' '}
                   <ChevronRight size={11} className="inline" /> para ver el desglose por Estándar.
                 </p>
@@ -732,6 +790,68 @@ export default function Dashboard() {
                   </div>
                 )}
               </Card>
+
+              {/* Mapa de calor Sede × Estándar (pedido 2026-09-02): de un
+                  vistazo detecta en qué combinación Sede/Estándar se
+                  concentran los incumplimientos, sobre el mismo panel ya
+                  filtrado de arriba. Clic en una celda (no hover, mismo
+                  criterio que el resto de la app) abre el detalle exacto. */}
+              {heatmapSedes.length > 0 && heatmapEstandares.length > 0 && (
+                <Card className="mb-4">
+                  <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Mapa de calor — % Cumple por Sede y Estándar</h3>
+                  <p className="mb-3 text-sm text-slate-500">
+                    Verde = alto cumplimiento, rojo = bajo. Clic en una celda para ver el detalle.
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="border-separate border-spacing-1 text-sm">
+                      <thead>
+                        <tr>
+                          <th className="sticky left-0 bg-white px-2 py-1 text-left font-medium text-slate-500">Sede</th>
+                          {heatmapEstandares.map((est) => (
+                            <th
+                              key={est}
+                              title={est}
+                              className="min-w-[52px] px-1 py-1 text-center text-[11px] font-medium text-slate-500"
+                            >
+                              {nombreCortoEstandar(est)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {heatmapSedes.map((sede) => (
+                          <tr key={sede}>
+                            <td className="sticky left-0 whitespace-nowrap bg-white pr-3 py-1 font-medium text-slate-700">
+                              {sede}
+                            </td>
+                            {heatmapEstandares.map((est) => {
+                              const c = heatmapSedeEstandar[sede]?.[est]
+                              const total = c?.total ?? 0
+                              const pct = c ? porcentaje(c.cumple, total) : 0
+                              return (
+                                <td key={est} className="p-0 text-center">
+                                  <button
+                                    type="button"
+                                    disabled={total === 0}
+                                    onClick={() => setCeldaHeatmap({ sede, estandar: est })}
+                                    title={`${sede} · ${est}: ${total === 0 ? 'sin datos respondidas' : `${pct}% Cumple`}`}
+                                    style={{ background: total === 0 ? '#f1f5f9' : colorCalor(pct) }}
+                                    className={`flex h-8 w-[52px] items-center justify-center rounded-md text-xs font-semibold transition-transform ${
+                                      total === 0 ? 'text-slate-300' : 'text-white hover:scale-105'
+                                    }`}
+                                  >
+                                    {total === 0 ? '—' : `${pct}%`}
+                                  </button>
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
             </>
           )}
 
@@ -835,7 +955,6 @@ export default function Dashboard() {
                         ))}
                       </Pie>
                       <Tooltip content={<TooltipGrafica />} />
-                      <Legend wrapperStyle={{ fontSize: 10 }} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="pointer-events-none absolute inset-x-0 top-[68px] flex flex-col items-center">
@@ -843,11 +962,67 @@ export default function Dashboard() {
                     <span className="text-[10px] text-slate-400">criterios</span>
                   </div>
                 </div>
+                {/* Leyenda propia en vez de <Legend> de Recharts: las frases
+                    de Complejidad son largas y en varias líneas de 10px se
+                    volvían ilegibles — lista vertical con scroll a 12px. */}
+                <div className="mt-2 flex max-h-28 flex-col gap-1 overflow-y-auto pr-1">
+                  {criteriosPorComplejidad.map((c, i) => (
+                    <div key={c.nombre} className="flex items-center gap-1.5 text-xs" title={c.nombre}>
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: PALETA_GRUPOS[i % PALETA_GRUPOS.length] }}
+                      />
+                      <span className="truncate text-slate-600">{c.nombre}</span>
+                      <span className="ml-auto shrink-0 font-medium text-slate-400">{c.valor}</span>
+                    </div>
+                  ))}
+                </div>
               </Card>
             </div>
           )}
         </>
       )}
+
+      <Modal
+        open={!!celdaHeatmap}
+        onClose={() => setCeldaHeatmap(null)}
+        titulo={celdaHeatmap ? `${celdaHeatmap.sede} — ${celdaHeatmap.estandar}` : ''}
+      >
+        {celdaHeatmap &&
+          (() => {
+            const c = heatmapSedeEstandar[celdaHeatmap.sede]?.[celdaHeatmap.estandar] ?? conteoVacio()
+            const filasDetalle: { etiqueta: string; valor: number; color: string }[] = [
+              { etiqueta: 'Cumple', valor: c.cumple, color: 'text-emerald-600' },
+              { etiqueta: 'No Cumple', valor: c.no_cumple, color: 'text-red-600' },
+              { etiqueta: 'No Aplica', valor: c.no_aplica, color: 'text-slate-500' },
+            ]
+            return (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
+                  <div
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                    style={{ background: c.total === 0 ? '#cbd5e1' : colorCalor(porcentaje(c.cumple, c.total)) }}
+                  >
+                    {c.total === 0 ? '—' : `${porcentaje(c.cumple, c.total)}%`}
+                  </div>
+                  <div className="text-sm text-slate-600">
+                    {c.total.toLocaleString()} preguntas respondidas en esta combinación de Sede/Estándar.
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {filasDetalle.map((f) => (
+                    <div key={f.etiqueta} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600">{f.etiqueta}</span>
+                      <span className={`font-semibold ${f.color}`}>
+                        {f.valor} ({porcentaje(f.valor, c.total)}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+      </Modal>
     </div>
   )
 }
@@ -860,7 +1035,7 @@ function DesgloseEstandar({ datos }: { datos: Record<string, ConteoRespuestas> }
     return <p className="text-xs text-slate-400">Todavía no hay preguntas respondidas en esta auto-evaluación.</p>
   }
   return (
-    <table className="w-full max-w-2xl text-xs">
+    <table className="w-full max-w-2xl text-sm">
       <thead>
         <tr className="text-left text-slate-500">
           <th className="py-1 pr-4">Estándar</th>
