@@ -45,26 +45,26 @@ export default function Usuarios() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
-                  <th className="py-2 pr-4">Nombre</th>
-                  <th className="py-2 pr-4">Email</th>
-                  <th className="py-2 pr-4">Rol</th>
-                  <th className="py-2 pr-4">Estado</th>
-                  <th className="py-2 pr-4" />
+                  <th className="py-1 pr-3">Nombre</th>
+                  <th className="py-1 pr-3">Email</th>
+                  <th className="py-1 pr-3">Rol</th>
+                  <th className="py-1 pr-3">Estado</th>
+                  <th className="py-1 pr-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {usuarios.map((u) => (
                   <tr key={u.id}>
-                    <td className="py-2 pr-4 font-medium text-slate-700">{u.nombre}</td>
-                    <td className="py-2 pr-4">{u.email}</td>
-                    <td className="py-2 pr-4">{ROLES_APP.find((r) => r.valor === u.role)?.etiqueta ?? u.role}</td>
-                    <td className="py-2 pr-4">
+                    <td className="py-1 pr-3 font-medium text-slate-700">{u.nombre}</td>
+                    <td className="py-1 pr-3">{u.email}</td>
+                    <td className="py-1 pr-3">{ROLES_APP.find((r) => r.valor === u.role)?.etiqueta ?? u.role}</td>
+                    <td className="py-1 pr-3">
                       <Badge tono={u.activo ? 'exito' : 'neutro'}>{u.activo ? 'Activo' : 'Inactivo'}</Badge>
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-1 pr-3 text-right">
                       <button
                         onClick={() => setModalReset(u)}
                         className="text-xs font-medium text-azul2 hover:underline"
@@ -140,11 +140,11 @@ function ModalCrearUsuario({
   return (
     <Modal open={open} onClose={cerrar} titulo="Nuevo usuario">
       <form onSubmit={crear} className="flex flex-col gap-4">
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Nombre</span>
           <input required value={nombre} onChange={(e) => setNombre(e.target.value)} className="campo" />
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Email</span>
           <input
             required
@@ -154,7 +154,7 @@ function ModalCrearUsuario({
             className="campo"
           />
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Contraseña temporal</span>
           <input
             required
@@ -165,7 +165,7 @@ function ModalCrearUsuario({
             className="campo"
           />
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Rol</span>
           <select value={role} onChange={(e) => setRole(e.target.value as RolApp)} className="campo">
             {ROLES_APP.map((r) => (
@@ -175,7 +175,7 @@ function ModalCrearUsuario({
             ))}
           </select>
         </label>
-        {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
         <div className="flex gap-2">
           <Boton type="button" variante="secundario" onClick={cerrar} className="flex-1">
             Cancelar
@@ -228,10 +228,10 @@ function ModalResetPassword({
   return (
     <Modal open={!!usuario} onClose={cerrar} titulo={`Restablecer contraseña — ${usuario?.nombre ?? ''}`}>
       {ok ? (
-        <div className="text-sm text-emerald-700">Contraseña actualizada correctamente.</div>
+        <div className="text-xs text-emerald-700">Contraseña actualizada correctamente.</div>
       ) : (
         <form onSubmit={guardar} className="flex flex-col gap-4">
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Nueva contraseña temporal</span>
             <input
               required
@@ -241,7 +241,7 @@ function ModalResetPassword({
               className="campo"
             />
           </label>
-          {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+          {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
           <div className="flex gap-2">
             <Boton type="button" variante="secundario" onClick={cerrar} className="flex-1">
               Cancelar

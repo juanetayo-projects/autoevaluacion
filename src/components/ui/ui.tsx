@@ -14,13 +14,13 @@ export function MetricCard({
   sub?: string
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-azul to-azul2 p-4 text-white shadow-lg shadow-azul/20">
+    <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-azul to-azul2 p-3 text-white shadow-lg shadow-azul/20">
       <div className="flex items-center justify-between">
-        <span className="text-sm/5 opacity-80">{titulo}</span>
+        <span className="text-xs opacity-80">{titulo}</span>
         {icono}
       </div>
-      <div className="mt-1.5 text-2xl font-bold">{valor}</div>
-      {sub && <div className="mt-1 text-xs opacity-75">{sub}</div>}
+      <div className="mt-1 text-xl font-bold">{valor}</div>
+      {sub && <div className="mt-0.5 text-[11px] opacity-75">{sub}</div>}
     </div>
   )
 }
@@ -28,8 +28,8 @@ export function MetricCard({
 // --- Encabezado de página ---
 export function PageHeader({ titulo, acciones }: { titulo: string; acciones?: ReactNode }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <h1 className="text-xl font-semibold text-azul">{titulo}</h1>
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <h1 className="text-lg font-semibold text-azul">{titulo}</h1>
       <div className="flex flex-wrap gap-2">{acciones}</div>
     </div>
   )
@@ -38,7 +38,7 @@ export function PageHeader({ titulo, acciones }: { titulo: string; acciones?: Re
 // --- Barra de filtros reutilizable ---
 export function FilterBar({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-md ${className}`}>
+    <div className={`mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-300 bg-white p-3 shadow-md ${className}`}>
       {children}
     </div>
   )
@@ -91,7 +91,7 @@ export function Boton({
   return (
     <button
       {...props}
-      className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${estilos} ${className}`}
+      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${estilos} ${className}`}
     />
   )
 }
@@ -112,7 +112,7 @@ export function Badge({
     info: 'bg-sky-100 text-sky-700',
   }[tono]
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${estilos}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${estilos}`}>
       {children}
     </span>
   )
@@ -121,7 +121,11 @@ export function Badge({
 // --- Card contenedora simple ---
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-5 shadow-md ${className}`}>
+    // Borde slate-300 (en vez de 200) + sombra mas marcada (pedido
+    // 2026-09-02, punto 5): el fondo de pagina ahora tiene mas contraste,
+    // pero las tarjetas necesitan su propio borde definido para no
+    // "flotar" sin límite claro encima de ese fondo.
+    <div className={`rounded-xl border border-slate-300 bg-white p-4 shadow-md ${className}`}>
       {children}
     </div>
   )

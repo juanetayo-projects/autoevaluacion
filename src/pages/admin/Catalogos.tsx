@@ -80,7 +80,7 @@ function CampoFiltro({
   children: React.ReactNode
 }) {
   return (
-    <label className={`shrink-0 text-sm ${className}`}>
+    <label className={`shrink-0 text-xs ${className}`}>
       <span className="mb-1 block truncate font-medium text-slate-600">{label}</span>
       {children}
     </label>
@@ -186,18 +186,18 @@ function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
 
   return (
     <Card>
-      <p className="mb-4 text-sm text-slate-500">
+      <p className="mb-4 text-xs text-slate-500">
         Catálogo de servicios de la {cfg.label} (tabla {cfg.tablaServicios}). Este es el catálogo que alimenta el
         selector "Servicio" al crear una auto-evaluación con esta resolución — no tiene Sede asociada, la Sede solo
         se captura al iniciar la auto-evaluación.
       </p>
 
       <FilterBar>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Buscar servicio</span>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Grupo</span>
           <select
             value={grupoFiltro}
@@ -233,22 +233,22 @@ function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-200 text-left text-slate-500">
-                <th className="py-2 pr-4">Servicio</th>
-                <th className="py-2 pr-4">Grupo</th>
-                <th className="py-2 pr-4">Descripción</th>
-                <th className="py-2 pr-4" />
+                <th className="py-1 pr-3">Servicio</th>
+                <th className="py-1 pr-3">Grupo</th>
+                <th className="py-1 pr-3">Descripción</th>
+                <th className="py-1 pr-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtrados.map((s) => (
                 <tr key={s.id}>
-                  <td className="py-2 pr-4 font-medium text-slate-700">{s.nombre}</td>
-                  <td className="py-2 pr-4">{s.grupo?.nombre ?? '—'}</td>
-                  <td className="max-w-md truncate py-2 pr-4 text-slate-500">{s.descripcion ?? '—'}</td>
-                  <td className="py-2 pr-4 text-right">
+                  <td className="py-1 pr-3 font-medium text-slate-700">{s.nombre}</td>
+                  <td className="py-1 pr-3">{s.grupo?.nombre ?? '—'}</td>
+                  <td className="max-w-md truncate py-1 pr-3 text-slate-500">{s.descripcion ?? '—'}</td>
+                  <td className="py-1 pr-3 text-right">
                     <button onClick={() => setEditando(s)} className="text-xs font-medium text-azul2 hover:underline">
                       Editar
                     </button>
@@ -315,11 +315,11 @@ function ModalEditarServicioCatalogo({
   return (
     <Modal open={!!registro} onClose={onClose} titulo={`Editar servicio (${cfg.labelCorto})`}>
       <div className="flex flex-col gap-4">
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Servicio</span>
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="campo" />
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Grupo</span>
           <select value={grupoId ?? ''} onChange={(e) => setGrupoId(Number(e.target.value))} className="campo">
             {grupos.map((g) => (
@@ -329,11 +329,11 @@ function ModalEditarServicioCatalogo({
             ))}
           </select>
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Descripción</span>
           <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} className="campo" rows={4} />
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Estructura</span>
           <textarea value={estructura} onChange={(e) => setEstructura(e.target.value)} className="campo" rows={3} />
         </label>
@@ -555,7 +555,7 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-xs text-slate-500">
           Tabla maestra de criterios de la {cfg.label} (tabla {cfg.tablaCriterios}) — {total.toLocaleString()}{' '}
           registros.
         </p>
@@ -682,40 +682,40 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
-                  <th className="py-2 pr-4">No.</th>
-                  <th className="py-2 pr-4">Item</th>
-                  <th className="py-2 pr-4">Página</th>
-                  <th className="py-2 pr-4">Criterio</th>
-                  <th className="py-2 pr-4">Grupo</th>
-                  <th className="py-2 pr-4">Servicio</th>
-                  <th className="py-2 pr-4">Numeral Grupo</th>
-                  <th className="py-2 pr-4">Numeral Servicio</th>
-                  <th className="py-2 pr-4">Estándar</th>
-                  <th className="py-2 pr-4">Complejidad</th>
-                  <th className="py-2 pr-4">Modalidad</th>
-                  <th className="py-2 pr-4" />
+                  <th className="py-1 pr-3">No.</th>
+                  <th className="py-1 pr-3">Item</th>
+                  <th className="py-1 pr-3">Página</th>
+                  <th className="py-1 pr-3">Criterio</th>
+                  <th className="py-1 pr-3">Grupo</th>
+                  <th className="py-1 pr-3">Servicio</th>
+                  <th className="py-1 pr-3">Numeral Grupo</th>
+                  <th className="py-1 pr-3">Numeral Servicio</th>
+                  <th className="py-1 pr-3">Estándar</th>
+                  <th className="py-1 pr-3">Complejidad</th>
+                  <th className="py-1 pr-3">Modalidad</th>
+                  <th className="py-1 pr-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {criterios.map((c) => (
                   <tr key={c.id}>
-                    <td className="py-2 pr-4 text-slate-500">{c.numero}</td>
-                    <td className="py-2 pr-4 text-slate-500">{c.item ?? '—'}</td>
-                    <td className="py-2 pr-4 text-slate-500">{c.pagina ?? '—'}</td>
-                    <td className="max-w-lg py-2 pr-4">
+                    <td className="py-1 pr-3 text-slate-500">{c.numero}</td>
+                    <td className="py-1 pr-3 text-slate-500">{c.item ?? '—'}</td>
+                    <td className="py-1 pr-3 text-slate-500">{c.pagina ?? '—'}</td>
+                    <td className="max-w-lg py-1 pr-3">
                       <span className="line-clamp-2">{c.criterio}</span>
                     </td>
-                    <td className="py-2 pr-4">{c.grupo?.nombre ?? '—'}</td>
-                    <td className="py-2 pr-4">{c.servicio?.nombre ?? '—'}</td>
-                    <td className="py-2 pr-4 text-slate-500">{c.numeral_grupo}</td>
-                    <td className="py-2 pr-4 text-slate-500">{c.numeral_servicio}</td>
-                    <td className="py-2 pr-4">{c.estandar}</td>
-                    <td className="py-2 pr-4">{c.complejidad}</td>
-                    <td className="py-2 pr-4">{c.modalidad ?? '—'}</td>
-                    <td className="flex gap-3 py-2 pr-4 text-right text-xs">
+                    <td className="py-1 pr-3">{c.grupo?.nombre ?? '—'}</td>
+                    <td className="py-1 pr-3">{c.servicio?.nombre ?? '—'}</td>
+                    <td className="py-1 pr-3 text-slate-500">{c.numeral_grupo}</td>
+                    <td className="py-1 pr-3 text-slate-500">{c.numeral_servicio}</td>
+                    <td className="py-1 pr-3">{c.estandar}</td>
+                    <td className="py-1 pr-3">{c.complejidad}</td>
+                    <td className="py-1 pr-3">{c.modalidad ?? '—'}</td>
+                    <td className="flex gap-3 py-1 pr-3 text-right text-xs">
                       <button onClick={() => setEditando(c)} className="font-medium text-azul2 hover:underline">
                         Editar
                       </button>
@@ -732,7 +732,7 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
             </table>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
+          <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
             <span>
               Página {pagina + 1} de {totalPaginas} — {total.toLocaleString()} registros
             </span>
@@ -765,7 +765,7 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
       />
 
       <Modal open={!!eliminando} onClose={() => setEliminando(null)} titulo="Eliminar criterio">
-        <p className="mb-4 text-sm text-slate-600">
+        <p className="mb-4 text-xs text-slate-600">
           ¿Eliminar el criterio {eliminando?.numero}? Esta acción no se puede deshacer.
         </p>
         <div className="flex gap-2">
@@ -885,25 +885,25 @@ function ModalEditarCriterioCatalogo({
     >
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-3 gap-3">
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">No. (numero)</span>
             <input value={numero} onChange={(e) => setNumero(e.target.value)} className="campo" />
           </label>
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Página</span>
             <input value={pagina} onChange={(e) => setPagina(e.target.value)} className="campo" />
           </label>
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Item</span>
             <input value={item} onChange={(e) => setItem(e.target.value)} className="campo" />
           </label>
         </div>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Criterio</span>
           <textarea value={criterio} onChange={(e) => setCriterio(e.target.value)} className="campo" rows={3} />
         </label>
         <div className="grid grid-cols-2 gap-3">
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Grupo</span>
             <select value={grupoId ?? ''} onChange={(e) => setGrupoId(Number(e.target.value))} className="campo">
               {grupos.map((g) => (
@@ -913,7 +913,7 @@ function ModalEditarCriterioCatalogo({
               ))}
             </select>
           </label>
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Servicio</span>
             <select value={servicioId ?? ''} onChange={(e) => setServicioId(Number(e.target.value))} className="campo">
               {servicios.map((s) => (
@@ -931,7 +931,7 @@ function ModalEditarCriterioCatalogo({
           </div>
         )}
         <div className="grid grid-cols-3 gap-3">
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Estándar</span>
             <select value={estandar} onChange={(e) => setEstandar(e.target.value)} className="campo">
               <option value="">Selecciona…</option>
@@ -942,7 +942,7 @@ function ModalEditarCriterioCatalogo({
               ))}
             </select>
           </label>
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Complejidad</span>
             <select value={complejidad} onChange={(e) => setComplejidad(e.target.value)} className="campo">
               <option value="">Selecciona…</option>
@@ -953,7 +953,7 @@ function ModalEditarCriterioCatalogo({
               ))}
             </select>
           </label>
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Modalidad</span>
             <select value={modalidad} onChange={(e) => setModalidad(e.target.value)} className="campo">
               <option value="">Selecciona…</option>
@@ -1067,12 +1067,12 @@ function CatalogoSimpleTab({
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">{descripcion}</p>
+        <p className="text-xs text-slate-500">{descripcion}</p>
         <Boton onClick={() => setEditando('nuevo')}>Nueva {etiquetaSingular}</Boton>
       </div>
 
       <FilterBar>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Buscar</span>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
         </label>
@@ -1083,21 +1083,21 @@ function CatalogoSimpleTab({
           <Spinner />
         </div>
       ) : filtrados.length === 0 ? (
-        <p className="py-6 text-center text-sm text-slate-400">No hay registros para mostrar.</p>
+        <p className="py-6 text-center text-xs text-slate-400">No hay registros para mostrar.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-200 text-left text-slate-500">
-                <th className="py-2 pr-4">{etiquetaPlural}</th>
-                <th className="py-2 pr-4" />
+                <th className="py-1 pr-3">{etiquetaPlural}</th>
+                <th className="py-1 pr-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtrados.map((r) => (
                 <tr key={r.id}>
-                  <td className="py-2 pr-4 font-medium text-slate-700">{r.nombre}</td>
-                  <td className="flex gap-3 py-2 pr-4 text-right text-xs">
+                  <td className="py-1 pr-3 font-medium text-slate-700">{r.nombre}</td>
+                  <td className="flex gap-3 py-1 pr-3 text-right text-xs">
                     <button onClick={() => setEditando(r)} className="font-medium text-azul2 hover:underline">
                       Editar
                     </button>
@@ -1127,10 +1127,10 @@ function CatalogoSimpleTab({
       />
 
       <Modal open={!!eliminando} onClose={() => setEliminando(null)} titulo={`Eliminar ${etiquetaSingular}`}>
-        <p className="mb-4 text-sm text-slate-600">
+        <p className="mb-4 text-xs text-slate-600">
           ¿Eliminar <strong>{eliminando?.nombre}</strong>? Esta acción no se puede deshacer.
         </p>
-        {errorEliminar && <p className="mb-4 text-sm text-red-600">{errorEliminar}</p>}
+        {errorEliminar && <p className="mb-4 text-xs text-red-600">{errorEliminar}</p>}
         <div className="flex gap-2">
           <Boton variante="secundario" onClick={() => setEliminando(null)} className="flex-1">
             Cancelar
@@ -1187,11 +1187,11 @@ function ModalEditarSimple({
   return (
     <Modal open={!!registro} onClose={onClose} titulo={esNuevo ? `Nueva ${etiquetaSingular}` : `Editar ${etiquetaSingular}`}>
       <div className="flex flex-col gap-4">
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Nombre</span>
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="campo" autoFocus />
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex gap-2">
           <Boton variante="secundario" onClick={onClose} className="flex-1">
             Cancelar
@@ -1252,7 +1252,7 @@ function SedesTab() {
   return (
     <Card>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-xs text-slate-500">
           Sedes de la Empresa (Torre, Urgencias, Centro de Especialistas). Catálogo independiente usado por la
           cabecera de Nueva auto-evaluación.
         </p>
@@ -1262,7 +1262,7 @@ function SedesTab() {
       </div>
 
       <FilterBar>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Buscar</span>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
         </label>
@@ -1273,23 +1273,23 @@ function SedesTab() {
           <Spinner />
         </div>
       ) : filtradas.length === 0 ? (
-        <p className="py-6 text-center text-sm text-slate-400">No hay registros para mostrar.</p>
+        <p className="py-6 text-center text-xs text-slate-400">No hay registros para mostrar.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-200 text-left text-slate-500">
-                <th className="py-2 pr-4">Sede</th>
-                <th className="py-2 pr-4">Empresa</th>
-                <th className="py-2 pr-4" />
+                <th className="py-1 pr-3">Sede</th>
+                <th className="py-1 pr-3">Empresa</th>
+                <th className="py-1 pr-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtradas.map((s) => (
                 <tr key={s.id}>
-                  <td className="py-2 pr-4 font-medium text-slate-700">{s.nombre}</td>
-                  <td className="py-2 pr-4 text-slate-500">{s.empresa?.nombre ?? '—'}</td>
-                  <td className="flex gap-3 py-2 pr-4 text-right text-xs">
+                  <td className="py-1 pr-3 font-medium text-slate-700">{s.nombre}</td>
+                  <td className="py-1 pr-3 text-slate-500">{s.empresa?.nombre ?? '—'}</td>
+                  <td className="flex gap-3 py-1 pr-3 text-right text-xs">
                     <button onClick={() => setEditando(s)} className="font-medium text-azul2 hover:underline">
                       Editar
                     </button>
@@ -1318,10 +1318,10 @@ function SedesTab() {
       />
 
       <Modal open={!!eliminando} onClose={() => setEliminando(null)} titulo="Eliminar sede">
-        <p className="mb-4 text-sm text-slate-600">
+        <p className="mb-4 text-xs text-slate-600">
           ¿Eliminar <strong>{eliminando?.nombre}</strong>? Esta acción no se puede deshacer.
         </p>
-        {errorEliminar && <p className="mb-4 text-sm text-red-600">{errorEliminar}</p>}
+        {errorEliminar && <p className="mb-4 text-xs text-red-600">{errorEliminar}</p>}
         <div className="flex gap-2">
           <Boton variante="secundario" onClick={() => setEliminando(null)} className="flex-1">
             Cancelar
@@ -1383,11 +1383,11 @@ function ModalEditarSede({
   return (
     <Modal open={!!registro} onClose={onClose} titulo={esNuevo ? 'Nueva sede' : 'Editar sede'}>
       <div className="flex flex-col gap-4">
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Nombre</span>
           <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="campo" autoFocus />
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Empresa</span>
           <select value={empresaId ?? ''} onChange={(e) => setEmpresaId(Number(e.target.value))} className="campo">
             {empresas.map((e) => (
@@ -1397,7 +1397,7 @@ function ModalEditarSede({
             ))}
           </select>
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-xs text-red-600">{error}</p>}
         <div className="flex gap-2">
           <Boton variante="secundario" onClick={onClose} className="flex-1">
             Cancelar

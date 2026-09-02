@@ -557,39 +557,6 @@ export default function Dashboard() {
             />
           </div>
 
-          <Card className="mb-4 p-4">
-            <h2 className="mb-2 text-sm font-semibold text-slate-700">Últimas auto-evaluaciones</h2>
-            {!resumen?.recientes.length ? (
-              <p className="py-4 text-center text-sm text-slate-400">
-                Todavía no hay auto-evaluaciones registradas{sedeFiltro ? ' para esta sede' : ''}.
-              </p>
-            ) : (
-              // Columnas de ancho fijo (grid, no flex justify-between) para
-              // que Servicio/Usuario/Estado/Fecha queden alineados entre
-              // filas sin importar cuánto texto tenga cada una — antes cada
-              // fila repartía el espacio sobrante distinto según el largo
-              // del nombre del servicio (ver imagen-1 del pedido 2026-08-28).
-              <div className="divide-y divide-slate-100">
-                {resumen.recientes.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => navigate(`/nueva/${r.id}`)}
-                    className="grid w-full grid-cols-[1fr_160px_90px_90px] items-center gap-3 py-1.5 text-left text-sm hover:bg-slate-50"
-                  >
-                    <span className="truncate font-medium text-slate-700">
-                      {r.servicio?.nombre ?? 'Servicio sin definir'}
-                    </span>
-                    <span className="truncate text-slate-500">{r.usuario?.nombre ?? '—'}</span>
-                    <span className={r.estado === 'borrador' ? 'text-amber-600' : 'text-emerald-600'}>
-                      {r.estado === 'borrador' ? 'Borrador' : 'Finalizada'}
-                    </span>
-                    <span className="text-slate-400">{r.fecha}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </Card>
-
           {/* Panel filtrable de auto-evaluaciones habilitadas (sección 3 del
               pedido 2026-08-28) — un único juego de filtros alimenta a la vez
               la gráfica y la tabla de datos de abajo. */}
@@ -601,7 +568,7 @@ export default function Dashboard() {
               una sola línea (punto 9 del pedido 2026-08-28), con scroll
               horizontal si la pantalla es angosta en vez de bajar de línea. */}
           <FilterBar className="!flex-nowrap overflow-x-auto">
-            <label className="shrink-0 text-sm">
+            <label className="shrink-0 text-xs">
               <span className="mb-1 block font-medium text-slate-600">Empresa</span>
               <select
                 value={panelEmpresaFiltro}
@@ -616,7 +583,7 @@ export default function Dashboard() {
                 ))}
               </select>
             </label>
-            <label className="shrink-0 text-sm">
+            <label className="shrink-0 text-xs">
               <span className="mb-1 block font-medium text-slate-600">Sede</span>
               <select
                 value={panelSedeFiltro}
@@ -631,7 +598,7 @@ export default function Dashboard() {
                 ))}
               </select>
             </label>
-            <label className="shrink-0 text-sm">
+            <label className="shrink-0 text-xs">
               <span className="mb-1 block font-medium text-slate-600">Servicio</span>
               <select
                 value={panelServicioFiltro}
@@ -646,7 +613,7 @@ export default function Dashboard() {
                 ))}
               </select>
             </label>
-            <label className="shrink-0 text-sm">
+            <label className="shrink-0 text-xs">
               <span className="mb-1 block font-medium text-slate-600">Estado</span>
               <select
                 value={panelEstadoFiltro}
@@ -658,7 +625,7 @@ export default function Dashboard() {
                 <option value="finalizada">Finalizada</option>
               </select>
             </label>
-            <label className="shrink-0 text-sm">
+            <label className="shrink-0 text-xs">
               <span className="mb-1 block font-medium text-slate-600">Habilitada</span>
               <select
                 value={panelHabilitadaFiltro}
@@ -681,56 +648,94 @@ export default function Dashboard() {
             </div>
           ) : (
             <>
-              <Card className="mb-4 p-4">
-                <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Habilitadas por Sede</h3>
-                <p className="mb-3 text-xs text-slate-400">
-                  {autoevaluacionesPanel.length.toLocaleString()} auto-evaluaciones con los filtros activos
-                </p>
-                {habilitadasPorSede.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-slate-400">
-                    No hay auto-evaluaciones para los filtros seleccionados.
+              {/* Últimas auto-evaluaciones al lado de Habilitadas por Sede
+                  (pedido 2026-09-02, punto 3) en vez de una fila propia
+                  arriba — mismo alto de fila, aprovecha el ancho completo. */}
+              <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <Card className="p-4">
+                  <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Habilitadas por Sede</h3>
+                  <p className="mb-3 text-xs text-slate-400">
+                    {autoevaluacionesPanel.length.toLocaleString()} auto-evaluaciones con los filtros activos
                   </p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={habilitadasPorSede} margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      <XAxis dataKey="sede" tick={{ fontSize: 11, fill: '#334155' }} axisLine={false} tickLine={false} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                      <Tooltip content={<TooltipGrafica />} cursor={{ fill: '#f1f5f9' }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="habilitadas" name="Habilitadas" fill="#0284c7" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
-                      <Bar dataKey="noHabilitadas" name="No habilitadas" fill="#cbd5e1" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </Card>
+                  {habilitadasPorSede.length === 0 ? (
+                    <p className="py-8 text-center text-xs text-slate-400">
+                      No hay auto-evaluaciones para los filtros seleccionados.
+                    </p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={habilitadasPorSede} margin={{ top: 4, right: 12, bottom: 4, left: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="sede" tick={{ fontSize: 11, fill: '#334155' }} axisLine={false} tickLine={false} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                        <Tooltip content={<TooltipGrafica />} cursor={{ fill: '#f1f5f9' }} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Bar dataKey="habilitadas" name="Habilitadas" fill="#0284c7" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                        <Bar dataKey="noHabilitadas" name="No habilitadas" fill="#cbd5e1" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </Card>
+
+                <Card className="p-4">
+                  <h3 className="mb-2 text-sm font-semibold text-slate-700">Últimas auto-evaluaciones</h3>
+                  {!resumen?.recientes.length ? (
+                    <p className="py-4 text-center text-xs text-slate-400">
+                      Todavía no hay auto-evaluaciones registradas{sedeFiltro ? ' para esta sede' : ''}.
+                    </p>
+                  ) : (
+                    // Columnas de ancho fijo (grid, no flex justify-between) para
+                    // que Servicio/Usuario/Estado/Fecha queden alineados entre
+                    // filas sin importar cuánto texto tenga cada una — antes cada
+                    // fila repartía el espacio sobrante distinto según el largo
+                    // del nombre del servicio (ver imagen-1 del pedido 2026-08-28).
+                    <div className="divide-y divide-slate-100">
+                      {resumen.recientes.map((r) => (
+                        <button
+                          key={r.id}
+                          onClick={() => navigate(`/nueva/${r.id}`)}
+                          className="grid w-full grid-cols-[1fr_110px_70px_70px] items-center gap-2 py-1.5 text-left text-xs hover:bg-slate-50"
+                        >
+                          <span className="truncate font-medium text-slate-700">
+                            {r.servicio?.nombre ?? 'Servicio sin definir'}
+                          </span>
+                          <span className="truncate text-slate-500">{r.usuario?.nombre ?? '—'}</span>
+                          <span className={r.estado === 'borrador' ? 'text-amber-600' : 'text-emerald-600'}>
+                            {r.estado === 'borrador' ? 'Borrador' : 'Finalizada'}
+                          </span>
+                          <span className="text-slate-400">{r.fecha}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
 
               <Card className="mb-4">
                 <h3 className="mb-1 text-sm font-semibold text-slate-700">Detalle de auto-evaluaciones</h3>
-                <p className="mb-3 text-sm text-slate-500">
+                <p className="mb-3 text-xs text-slate-500">
                   % Cumple/No Cumple/No Aplica calculado sobre las preguntas ya respondidas de cada fila. Click en{' '}
                   <ChevronRight size={11} className="inline" /> para ver el desglose por Estándar.
                 </p>
                 {autoevaluacionesPanel.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-slate-400">
+                  <p className="py-6 text-center text-xs text-slate-400">
                     No hay auto-evaluaciones para los filtros seleccionados.
                   </p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-slate-200 text-left text-slate-500">
-                          <th className="py-2 pr-2" />
-                          <th className="py-2 pr-4">Fecha</th>
-                          <th className="py-2 pr-4">Empresa</th>
-                          <th className="py-2 pr-4">Sede</th>
-                          <th className="py-2 pr-4">Servicio</th>
-                          <th className="py-2 pr-4">Usuario</th>
-                          <th className="py-2 pr-4">Estado</th>
-                          <th className="py-2 pr-4">Habilitada</th>
-                          <th className="py-2 pr-4 text-right">Cumple</th>
-                          <th className="py-2 pr-4 text-right">No Cumple</th>
-                          <th className="py-2 pr-4 text-right">No Aplica</th>
+                          <th className="py-1 pr-2" />
+                          <th className="py-1 pr-3">Fecha</th>
+                          <th className="py-1 pr-3">Empresa</th>
+                          <th className="py-1 pr-3">Sede</th>
+                          <th className="py-1 pr-3">Servicio</th>
+                          <th className="py-1 pr-3">Usuario</th>
+                          <th className="py-1 pr-3">Estado</th>
+                          <th className="py-1 pr-3">Habilitada</th>
+                          <th className="py-1 pr-3 text-right">Cumple</th>
+                          <th className="py-1 pr-3 text-right">No Cumple</th>
+                          <th className="py-1 pr-3 text-right">No Aplica</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -739,8 +744,15 @@ export default function Dashboard() {
                           const expandida = filaExpandida === a.id
                           return (
                             <Fragment key={a.id}>
-                              <tr className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(`/nueva/${a.id}`)}>
-                                <td className="py-2 pr-2">
+                              {/* Fila resaltada mientras su desglose está
+                                  abierto (pedido 2026-09-02, punto 4) — antes
+                                  no había forma de saber a simple vista cuál
+                                  fila generó el panel expandido de abajo. */}
+                              <tr
+                                className={`cursor-pointer ${expandida ? 'bg-sky-50 hover:bg-sky-100' : 'hover:bg-slate-50'}`}
+                                onClick={() => navigate(`/nueva/${a.id}`)}
+                              >
+                                <td className="py-1 pr-2">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation()
@@ -752,33 +764,38 @@ export default function Dashboard() {
                                     {expandida ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                   </button>
                                 </td>
-                                <td className="py-2 pr-4">{a.fecha}</td>
-                                <td className="py-2 pr-4">{a.empresa?.nombre ?? '—'}</td>
-                                <td className="py-2 pr-4">{a.sede?.nombre ?? '—'}</td>
-                                <td className="py-2 pr-4 font-medium text-slate-700">{a.servicio?.nombre ?? '—'}</td>
-                                <td className="py-2 pr-4">{a.usuario?.nombre ?? '—'}</td>
-                                <td className="py-2 pr-4">
+                                <td className="py-1 pr-3">{a.fecha}</td>
+                                <td className="py-1 pr-3">{a.empresa?.nombre ?? '—'}</td>
+                                <td className="py-1 pr-3">{a.sede?.nombre ?? '—'}</td>
+                                <td className="py-1 pr-3 font-medium text-slate-700">{a.servicio?.nombre ?? '—'}</td>
+                                <td className="py-1 pr-3">{a.usuario?.nombre ?? '—'}</td>
+                                <td className="py-1 pr-3">
                                   <Badge tono={a.estado === 'finalizada' ? 'exito' : 'advertencia'}>
                                     {a.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
                                   </Badge>
                                 </td>
-                                <td className="py-2 pr-4">
+                                <td className="py-1 pr-3">
                                   {a.habilitada ? <Badge tono="info">Habilitada</Badge> : <span className="text-xs text-slate-400">—</span>}
                                 </td>
-                                <td className="py-2 pr-4 text-right text-emerald-600">
+                                <td className="py-1 pr-3 text-right text-emerald-600">
                                   {t.cumple} ({porcentaje(t.cumple, t.total)}%)
                                 </td>
-                                <td className="py-2 pr-4 text-right text-red-600">
+                                <td className="py-1 pr-3 text-right text-red-600">
                                   {t.no_cumple} ({porcentaje(t.no_cumple, t.total)}%)
                                 </td>
-                                <td className="py-2 pr-4 text-right text-slate-500">
+                                <td className="py-1 pr-3 text-right text-slate-500">
                                   {t.no_aplica} ({porcentaje(t.no_aplica, t.total)}%)
                                 </td>
                               </tr>
                               {expandida && (
-                                <tr className="bg-slate-50">
-                                  <td colSpan={11} className="px-4 py-3">
-                                    <DesgloseEstandar datos={desglosePorEstandar[a.id] ?? {}} />
+                                <tr className="bg-sky-50/60">
+                                  {/* Sangría hacia el interior + borde izquierdo de acento:
+                                      deja claro que este bloque es "hijo" de la fila resaltada
+                                      de arriba, no una fila más de la tabla. */}
+                                  <td colSpan={11} className="py-2 pl-8 pr-4">
+                                    <div className="border-l-2 border-azul/30 pl-3">
+                                      <DesgloseEstandar datos={desglosePorEstandar[a.id] ?? {}} />
+                                    </div>
                                   </td>
                                 </tr>
                               )}
@@ -799,11 +816,11 @@ export default function Dashboard() {
               {heatmapSedes.length > 0 && heatmapEstandares.length > 0 && (
                 <Card className="mb-4">
                   <h3 className="mb-0.5 text-sm font-semibold text-slate-700">Mapa de calor — % Cumple por Sede y Estándar</h3>
-                  <p className="mb-3 text-sm text-slate-500">
+                  <p className="mb-3 text-xs text-slate-500">
                     Verde = alto cumplimiento, rojo = bajo. Clic en una celda para ver el detalle.
                   </p>
                   <div className="overflow-x-auto">
-                    <table className="border-separate border-spacing-1 text-sm">
+                    <table className="border-separate border-spacing-1 text-xs">
                       <thead>
                         <tr>
                           <th className="sticky left-0 bg-white px-2 py-1 text-left font-medium text-slate-500">Sede</th>
@@ -1000,18 +1017,18 @@ export default function Dashboard() {
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
                   <div
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
                     style={{ background: c.total === 0 ? '#cbd5e1' : colorCalor(porcentaje(c.cumple, c.total)) }}
                   >
                     {c.total === 0 ? '—' : `${porcentaje(c.cumple, c.total)}%`}
                   </div>
-                  <div className="text-sm text-slate-600">
+                  <div className="text-xs text-slate-600">
                     {c.total.toLocaleString()} preguntas respondidas en esta combinación de Sede/Estándar.
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {filasDetalle.map((f) => (
-                    <div key={f.etiqueta} className="flex items-center justify-between text-sm">
+                    <div key={f.etiqueta} className="flex items-center justify-between text-xs">
                       <span className="text-slate-600">{f.etiqueta}</span>
                       <span className={`font-semibold ${f.color}`}>
                         {f.valor} ({porcentaje(f.valor, c.total)}%)
@@ -1035,7 +1052,7 @@ function DesgloseEstandar({ datos }: { datos: Record<string, ConteoRespuestas> }
     return <p className="text-xs text-slate-400">Todavía no hay preguntas respondidas en esta auto-evaluación.</p>
   }
   return (
-    <table className="w-full max-w-2xl text-sm">
+    <table className="w-full max-w-2xl text-xs">
       <thead>
         <tr className="text-left text-slate-500">
           <th className="py-1 pr-4">Estándar</th>

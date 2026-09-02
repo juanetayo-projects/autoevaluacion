@@ -18,13 +18,19 @@ body,
 
 body {
   margin: 0;
-  background-color: #f1f5f9;
+  /* Mas contraste que slate-100 (pedido 2026-09-02, punto 5) para que las
+     tarjetas/tablas/formularios blancos con sombra se noten mejor encima. */
+  background-color: #dde3ee;
   color: #0f172a;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
 }
 
 @layer components {
+  /* Densidad reducida (pedido 2026-09-02, punto 2): 12px + menos padding en
+     vez de text-sm/px-3 py-2, para aprovechar mejor el espacio en pantallas
+     con muchos campos/tablas. */
   .campo {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-azul focus:outline-none focus:ring-1 focus:ring-azul;
+    @apply w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs shadow-sm focus:border-azul focus:outline-none focus:ring-1 focus:ring-azul;
   }
 }

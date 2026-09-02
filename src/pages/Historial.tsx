@@ -144,11 +144,11 @@ export default function Historial() {
       <PageHeader titulo="Auto-Evaluaciones" />
 
       <FilterBar>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Buscar servicio</span>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Resolución</span>
           <select
             value={filtroResolucion}
@@ -163,7 +163,7 @@ export default function Historial() {
             ))}
           </select>
         </label>
-        <label className="text-sm">
+        <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Estado</span>
           <select
             value={filtroEstado}
@@ -183,56 +183,56 @@ export default function Historial() {
             <Spinner />
           </div>
         ) : filtradas.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-400">No hay auto-evaluaciones para mostrar.</p>
+          <p className="py-6 text-center text-xs text-slate-400">No hay auto-evaluaciones para mostrar.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
-                  <th className="py-2 pr-4">Fecha</th>
-                  <th className="py-2 pr-4">Resolución</th>
-                  <th className="py-2 pr-4">Servicio</th>
-                  <th className="py-2 pr-4">Sede</th>
-                  <th className="py-2 pr-4">Usuario</th>
-                  <th className="py-2 pr-4">Estado</th>
-                  <th className="py-2 pr-4">Habilitada</th>
-                  <th className="py-2 pr-4" />
+                  <th className="py-1 pr-3">Fecha</th>
+                  <th className="py-1 pr-3">Resolución</th>
+                  <th className="py-1 pr-3">Servicio</th>
+                  <th className="py-1 pr-3">Sede</th>
+                  <th className="py-1 pr-3">Usuario</th>
+                  <th className="py-1 pr-3">Estado</th>
+                  <th className="py-1 pr-3">Habilitada</th>
+                  <th className="py-1 pr-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtradas.map((f) => (
                   <tr key={f.id} className="hover:bg-slate-50">
-                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
+                    <td className="cursor-pointer py-1 pr-3" onClick={() => navigate(`/nueva/${f.id}`)}>
                       {f.fecha}
                     </td>
-                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
+                    <td className="cursor-pointer py-1 pr-3" onClick={() => navigate(`/nueva/${f.id}`)}>
                       <Badge tono="info">{RESOLUCIONES[f.resolucion].labelCorto}</Badge>
                     </td>
                     <td
-                      className="cursor-pointer py-2 pr-4 font-medium text-slate-700"
+                      className="cursor-pointer py-1 pr-3 font-medium text-slate-700"
                       onClick={() => navigate(`/nueva/${f.id}`)}
                     >
                       {nombreServicio(f)}
                     </td>
-                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
+                    <td className="cursor-pointer py-1 pr-3" onClick={() => navigate(`/nueva/${f.id}`)}>
                       {f.sede?.nombre ?? '—'}
                     </td>
-                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
+                    <td className="cursor-pointer py-1 pr-3" onClick={() => navigate(`/nueva/${f.id}`)}>
                       {f.usuario?.nombre ?? '—'}
                     </td>
-                    <td className="cursor-pointer py-2 pr-4" onClick={() => navigate(`/nueva/${f.id}`)}>
+                    <td className="cursor-pointer py-1 pr-3" onClick={() => navigate(`/nueva/${f.id}`)}>
                       <Badge tono={f.estado === 'finalizada' ? 'exito' : 'advertencia'}>
                         {f.estado === 'finalizada' ? 'Finalizada' : 'Borrador'}
                       </Badge>
                     </td>
-                    <td className="py-2 pr-4">
+                    <td className="py-1 pr-3">
                       {f.habilitada ? (
                         <Badge tono="info">Habilitada</Badge>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="py-1 pr-3 text-right">
                       <div className="flex justify-end gap-3">
                         <button
                           onClick={() => navigate(`/nueva/${f.id}`)}
@@ -282,13 +282,13 @@ export default function Historial() {
       </Card>
 
       <Modal open={!!habilitando} onClose={() => setHabilitando(null)} titulo="Habilitar auto-evaluación" ancho="max-w-lg">
-        <p className="mb-4 text-sm text-slate-600">
+        <p className="mb-4 text-xs text-slate-600">
           Auto-evaluación de <strong>{habilitando && nombreServicio(habilitando)}</strong> del {habilitando?.fecha}. Todas
           sus preguntas ya están diligenciadas (auto-evaluación finalizada).
         </p>
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
-            <label className="text-sm">
+            <label className="text-xs">
               <span className="mb-1 block font-medium text-slate-600">Fecha final</span>
               <input
                 type="date"
@@ -297,7 +297,7 @@ export default function Historial() {
                 className="campo"
               />
             </label>
-            <label className="text-sm">
+            <label className="text-xs">
               <span className="mb-1 block font-medium text-slate-600">Personas evaluadas</span>
               <input
                 type="number"
@@ -308,24 +308,24 @@ export default function Historial() {
               />
             </label>
           </div>
-          <label className="text-sm">
+          <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Comentarios</span>
             <textarea value={comentarios} onChange={(e) => setComentarios(e.target.value)} className="campo" rows={2} />
           </label>
-          <div className="text-sm">
+          <div className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">¿Requiere crear un Plan de Acción?</span>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setRequierePlanAccion(true)}
-                className={`flex-1 rounded-lg border px-3 py-1.5 text-sm font-medium ${requierePlanAccion ? 'border-azul bg-azul text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${requierePlanAccion ? 'border-azul bg-azul text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
               >
                 Sí
               </button>
               <button
                 type="button"
                 onClick={() => setRequierePlanAccion(false)}
-                className={`flex-1 rounded-lg border px-3 py-1.5 text-sm font-medium ${!requierePlanAccion ? 'border-azul bg-azul text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+                className={`flex-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${!requierePlanAccion ? 'border-azul bg-azul text-white' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
               >
                 No
               </button>
@@ -333,7 +333,7 @@ export default function Historial() {
           </div>
           {requierePlanAccion && (
             <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
-              <label className="text-sm">
+              <label className="text-xs">
                 <span className="mb-1 block font-medium text-slate-600">Título del Plan de Acción</span>
                 <input
                   value={planAccionTitulo}
@@ -341,7 +341,7 @@ export default function Historial() {
                   className="campo"
                 />
               </label>
-              <label className="text-sm">
+              <label className="text-xs">
                 <span className="mb-1 block font-medium text-slate-600">Descripción</span>
                 <textarea
                   value={planAccionDescripcion}
@@ -352,7 +352,7 @@ export default function Historial() {
               </label>
             </div>
           )}
-          {errorHabilitar && <p className="text-sm text-red-600">{errorHabilitar}</p>}
+          {errorHabilitar && <p className="text-xs text-red-600">{errorHabilitar}</p>}
         </div>
         <div className="mt-4 flex gap-2">
           <Boton variante="secundario" onClick={() => setHabilitando(null)} className="flex-1">
@@ -365,7 +365,7 @@ export default function Historial() {
       </Modal>
 
       <Modal open={!!eliminando} onClose={() => setEliminando(null)} titulo="Eliminar auto-evaluación">
-        <p className="mb-4 text-sm text-slate-600">
+        <p className="mb-4 text-xs text-slate-600">
           ¿Eliminar la auto-evaluación de <strong>{eliminando && nombreServicio(eliminando)}</strong> del{' '}
           {eliminando?.fecha}? Se borrarán también sus respuestas y compromisos de plan de acción. Esta acción no se
           puede deshacer.

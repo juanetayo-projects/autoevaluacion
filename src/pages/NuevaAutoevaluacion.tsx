@@ -612,7 +612,7 @@ export default function NuevaAutoevaluacion() {
       <div>
         <PageHeader titulo="Nueva auto-evaluación" />
         <Card className="mx-auto max-w-3xl p-4">
-          <p className="mb-4 text-sm text-slate-600">¿Con cuál resolución deseas trabajar esta auto-evaluación?</p>
+          <p className="mb-3 text-xs text-slate-600">¿Con cuál resolución deseas trabajar esta auto-evaluación?</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {RESOLUCION_KEYS.map((key) => {
               const cfg = RESOLUCIONES[key]
@@ -770,7 +770,7 @@ export default function NuevaAutoevaluacion() {
         >
           {duplicado?.estado === 'borrador' ? (
             <>
-              <p className="mb-4 text-sm text-slate-600">
+              <p className="mb-4 text-xs text-slate-600">
                 Ya hay un borrador (del {duplicado.fecha}) para este mismo Servicio, Sede y Empresa. ¿Deseas
                 continuarlo, o eliminarlo y empezar uno nuevo?
               </p>
@@ -788,7 +788,7 @@ export default function NuevaAutoevaluacion() {
             </>
           ) : (
             <>
-              <p className="mb-4 text-sm text-slate-600">
+              <p className="mb-4 text-xs text-slate-600">
                 Ya existe una auto-evaluación finalizada (del {duplicado?.fecha}) para este mismo Servicio, Sede y
                 Empresa.
               </p>
@@ -822,7 +822,7 @@ export default function NuevaAutoevaluacion() {
       <div>
         <PageHeader titulo={`Plan de acción — ${servicioSeleccionado?.nombre ?? ''}`} />
         <Card className="mx-auto max-w-2xl">
-          <p className="mb-4 text-sm text-slate-600">
+          <p className="mb-4 text-xs text-slate-600">
             Se encontraron {noCumpleSinCompromiso.length} criterios "No Cumple". Registra una actividad por cada uno
             para poder finalizar.
           </p>
@@ -831,7 +831,7 @@ export default function NuevaAutoevaluacion() {
               const c = compromisos[nc.respuestaId]
               return (
                 <div key={nc.respuestaId} className="rounded-lg border border-red-200 bg-red-50/50 p-4">
-                  <div className="mb-2 text-sm font-medium text-slate-700">
+                  <div className="mb-2 text-xs font-medium text-slate-700">
                     {nc.criterio?.numero}. {nc.criterio?.criterio.slice(0, 160)}
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -909,14 +909,14 @@ export default function NuevaAutoevaluacion() {
       <div className="mb-3 flex items-center justify-between gap-3">
         <button
           onClick={() => (estado === 'borrador' ? setConfirmarSalir(true) : navigate('/'))}
-          className="flex items-center gap-1 text-sm text-slate-500 hover:text-azul"
+          className="flex items-center gap-1 text-xs text-slate-500 hover:text-azul"
         >
           <ArrowLeft size={16} /> {estado === 'borrador' ? 'Salir' : 'Volver al dashboard'}
         </button>
         <button
           onClick={exportarExcel}
           disabled={exportando || criterios.length === 0}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FileDown size={15} />
           {exportando ? 'Exportando…' : 'Exportar Excel'}
@@ -924,7 +924,7 @@ export default function NuevaAutoevaluacion() {
       </div>
 
       <Modal open={confirmarSalir} onClose={() => setConfirmarSalir(false)} titulo="Salir de la auto-evaluación">
-        <p className="mb-4 text-sm text-slate-600">
+        <p className="mb-4 text-xs text-slate-600">
           Tu progreso ({avance.diligenciados}/{avance.total} criterios) ya está guardado como{' '}
           <strong>borrador</strong>. Puedes continuarlo más tarde desde el Dashboard o Auto-Evaluaciones.
         </p>
@@ -938,108 +938,19 @@ export default function NuevaAutoevaluacion() {
         </div>
       </Modal>
 
-      {/* Cabecera compacta en columnas: Servicio | Descripción | Avance | Agrupadores (2 col).
-          Servicio/Descripción/Agrupadores reparten el espacio en proporción (1.3:1:1) en vez de que
-          Servicio absorba todo el ancho sobrante — Avance queda fijo porque el anillo tiene tamaño fijo.
-          Fondo azul claro (en vez de blanco) + borde/sombra marcados para que se note como panel
-          flotante — antes, al pegarse arriba de la lista con fondo blanco liso, se confundía con
-          las tarjetas de criterios y la altura sin tope hacía que tapara varias preguntas a la vez.
-          Las 3 columnas con contenido variable (Servicio, Descripción, Agrupadores) usan el MISMO
-          max-h fijo (no flex-1 sin tope) para que la cabecera nunca crezca más de lo necesario. */}
-      <div className="sticky top-0 z-10 mb-3 grid grid-cols-1 gap-3 rounded-xl border-2 border-azul/15 bg-gradient-to-br from-sky-50 to-blue-50 p-3 shadow-lg shadow-azul/10 lg:grid-cols-[minmax(220px,1.3fr)_minmax(200px,1fr)_96px_minmax(200px,1fr)]">
-        <div className="min-w-0">
-          <div className="truncate text-base font-bold text-azul">{servicioSeleccionado?.nombre}</div>
-          {estado === 'finalizada' && (
-            <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-              Finalizada
-            </span>
-          )}
-          {/* Filtros seleccionados en líneas independientes, agrupados por color:
-              dónde se hizo (Empresa/Sede/Lugar) y cuándo/criterios (Fecha
-              inicio/Periodicidad/Modalidad/Complejidad). Sin max-h/scroll: son
-              siempre las mismas 7 filas cortas, nunca deberían necesitar
-              recortarse (a diferencia de la Descripción, de longitud variable). */}
-          <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 text-[11px]">
-            <FilaEtiqueta etiqueta="Empresa" valor={empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} tono="bg-sky-50" />
-            <FilaEtiqueta etiqueta="Sede" valor={sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} tono="bg-sky-50/60" />
-            <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50" />
-            <FilaEtiqueta etiqueta="Fecha inicio" valor={fecha} tono="bg-amber-50" />
-            <FilaEtiqueta
-              etiqueta="Periodicidad"
-              valor={periodicidades.find((p) => p.id === periodicidadId)?.nombre ?? '—'}
-              tono="bg-amber-50/60"
-            />
-            <FilaEtiqueta etiqueta="Modalidad" valor={modalidadFiltro.length ? modalidadFiltro.join(', ') : 'Todas'} tono="bg-amber-50" />
-            <FilaEtiqueta etiqueta="Complejidad" valor={complejidadFiltro.length ? complejidadFiltro.join(', ') : 'Todas'} tono="bg-amber-50/60" />
-          </div>
-        </div>
-
-        <div className="lg:border-l lg:border-azul/10 lg:pl-3">
-          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Descripción del servicio
-          </span>
-          {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
-            <div className="max-h-32 overflow-y-auto rounded-lg bg-white/60 p-1.5 pr-2 text-sm leading-relaxed text-slate-600">
-              {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
-              {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
+      {/* Layout de 2 columnas (pedido 2026-09-02, punto 1): antes este panel
+          era una barra horizontal sticky que tapaba las preguntas al hacer
+          scroll. Ahora es una barra lateral DERECHA (sticky por posición, no
+          por superposición) — el listado de preguntas nunca queda debajo. */}
+      <div className="flex flex-col items-start gap-3 lg:flex-row">
+        <div className="min-w-0 flex-1">
+          {cargandoCriterios ? (
+            <div className="flex justify-center py-16">
+              <Spinner />
             </div>
           ) : (
-            <p className="text-xs text-slate-400">Sin descripción.</p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 lg:flex-col lg:items-center lg:justify-center lg:gap-1 lg:border-l lg:border-azul/10 lg:pl-3">
-          <AnilloAvance avance={avance} />
-          <div className="text-xs leading-tight">
-            <div className="font-medium text-slate-600">
-              {avance.diligenciados}/{avance.total}
-            </div>
-            <div className="text-emerald-600">✔ {avance.pctCumple}%</div>
-            <div className="text-red-600">✘ {avance.pctNoCumple}%</div>
-            <div className="text-slate-500">⊘ {avance.pctNoAplica}%</div>
-          </div>
-        </div>
-
-        <div className="lg:border-l lg:border-azul/10 lg:pl-3">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Agrupadores</span>
-            <div className="flex gap-2">
-              <button onClick={expandirTodo} title="Expandir todo" className="text-[11px] font-medium text-azul2 hover:underline">
-                Expandir
-              </button>
-              <button onClick={contraerTodo} title="Contraer todo" className="text-[11px] font-medium text-azul2 hover:underline">
-                Contraer
-              </button>
-            </div>
-          </div>
-          <div className="grid max-h-32 grid-cols-2 gap-1 overflow-y-auto pr-1">
-            {grupos.map((g) => {
-              const color = colorDeEstandar(g.clave)
-              return (
-                <button
-                  key={g.clave}
-                  onClick={() => irAGrupo(g.clave, g.numero)}
-                  className={`flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] font-medium ${color.fondo} ${color.texto} hover:opacity-75`}
-                  title={g.clave}
-                >
-                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded ${color.badge} text-[9px] font-bold text-white`}>
-                    {g.numero}
-                  </span>
-                  <span className="truncate">{g.clave.replace('Estándar de ', '')}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {cargandoCriterios ? (
-        <div className="flex justify-center py-16">
-          <Spinner />
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {grupos.map((g) => {
+            <div className="flex flex-col gap-2">
+              {grupos.map((g) => {
             const colapsado = !!gruposColapsados[g.clave]
             const color = colorDeEstandar(g.clave)
             const diligenciados = g.items.filter((c) => !!respuestas[c.id]?.respuesta).length
@@ -1049,13 +960,13 @@ export default function NuevaAutoevaluacion() {
             return (
               <div key={g.clave} id={`grupo-${g.numero}`} className="scroll-mt-24">
                 <div
-                  className={`flex w-full flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border-l-4 ${color.borde} ${color.fondo} px-3 py-2`}
+                  className={`flex w-full flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border-l-4 ${color.borde} ${color.fondo} px-2.5 py-1.5`}
                 >
                   <button onClick={() => alternarGrupo(g.clave)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <span className={`rounded ${color.badge} px-2 py-0.5 text-xs font-bold text-white`}>
                       {g.numero}
                     </span>
-                    <span className={`truncate text-sm font-medium ${color.texto}`}>{g.clave}</span>
+                    <span className={`truncate text-xs font-semibold ${color.texto}`}>{g.clave}</span>
                     <span className="hidden shrink-0 items-center gap-2 text-xs text-slate-500 sm:flex">
                       <span title="Total de preguntas">{g.items.length} preguntas</span>
                       <span className="text-emerald-600" title="Diligenciadas">
@@ -1088,7 +999,7 @@ export default function NuevaAutoevaluacion() {
                   )}
                 </div>
                 {!colapsado && (
-                  <div className="mx-auto mt-2 flex max-w-4xl flex-col gap-3 pl-2">
+                  <div className="mx-auto mt-1.5 flex max-w-4xl flex-col gap-2 pl-2">
                     {g.subgrupos.map((sub) => {
                       if (filtroServicio === 'universal' && !sub.esUniversal) return null
                       if (filtroServicio === 'propio' && sub.esUniversal) return null
@@ -1129,16 +1040,109 @@ export default function NuevaAutoevaluacion() {
                   </div>
                 )}
               </div>
-            )
-          })}
-        </div>
-      )}
+                )
+              })}
+            </div>
+          )}
 
-      {estado !== 'finalizada' && (
-        <div className="mt-6 flex justify-end">
-          <Boton onClick={alIntentarFinalizar}>Finalizar auto-evaluación</Boton>
+          {estado !== 'finalizada' && (
+            <div className="mt-6 flex justify-end">
+              <Boton onClick={alIntentarFinalizar}>Finalizar auto-evaluación</Boton>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Barra lateral: Servicio/filtros, Descripción, Avance y
+            Agrupadores apilados — sticky por posición (no se superpone al
+            listado, solo se queda fija dentro de su propia columna). */}
+        <aside className="w-full shrink-0 lg:sticky lg:top-3 lg:w-72">
+          <div className="rounded-xl border-2 border-azul/15 bg-gradient-to-br from-sky-50 to-blue-50 p-3 shadow-lg shadow-azul/10">
+            <div className="min-w-0">
+              <div className="truncate text-xs font-bold text-azul">{servicioSeleccionado?.nombre}</div>
+              {estado === 'finalizada' && (
+                <span className="mt-1 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                  Finalizada
+                </span>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center justify-center gap-3 border-t border-azul/10 pt-3">
+              <AnilloAvance avance={avance} />
+              <div className="text-xs leading-tight">
+                <div className="font-medium text-slate-600">
+                  {avance.diligenciados}/{avance.total}
+                </div>
+                <div className="text-emerald-600">✔ {avance.pctCumple}%</div>
+                <div className="text-red-600">✘ {avance.pctNoCumple}%</div>
+                <div className="text-slate-500">⊘ {avance.pctNoAplica}%</div>
+              </div>
+            </div>
+
+            {/* Filtros seleccionados: dónde se hizo (Empresa/Sede/Lugar) y
+                cuándo/criterios (Fecha inicio/Periodicidad/Modalidad/
+                Complejidad) — siempre las mismas 7 filas cortas, sin scroll. */}
+            <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 text-[11px]">
+              <FilaEtiqueta etiqueta="Empresa" valor={empresas.find((e) => e.id === empresaId)?.nombre ?? '—'} tono="bg-sky-50" />
+              <FilaEtiqueta etiqueta="Sede" valor={sedes.find((s) => s.id === sedeId)?.nombre ?? '—'} tono="bg-sky-50/60" />
+              <FilaEtiqueta etiqueta="Lugar" valor={lugar || 'Sin lugar'} tono="bg-sky-50" />
+              <FilaEtiqueta etiqueta="Fecha inicio" valor={fecha} tono="bg-amber-50" />
+              <FilaEtiqueta
+                etiqueta="Periodicidad"
+                valor={periodicidades.find((p) => p.id === periodicidadId)?.nombre ?? '—'}
+                tono="bg-amber-50/60"
+              />
+              <FilaEtiqueta etiqueta="Modalidad" valor={modalidadFiltro.length ? modalidadFiltro.join(', ') : 'Todas'} tono="bg-amber-50" />
+              <FilaEtiqueta etiqueta="Complejidad" valor={complejidadFiltro.length ? complejidadFiltro.join(', ') : 'Todas'} tono="bg-amber-50/60" />
+            </div>
+
+            <div className="mt-3 border-t border-azul/10 pt-3">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Descripción del servicio
+              </span>
+              {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
+                <div className="max-h-32 overflow-y-auto rounded-lg bg-white/60 p-1.5 pr-2 text-xs leading-relaxed text-slate-600">
+                  {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
+                  {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">Sin descripción.</p>
+              )}
+            </div>
+
+            <div className="mt-3 border-t border-azul/10 pt-3">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Agrupadores</span>
+                <div className="flex gap-2">
+                  <button onClick={expandirTodo} title="Expandir todo" className="text-[11px] font-medium text-azul2 hover:underline">
+                    Expandir
+                  </button>
+                  <button onClick={contraerTodo} title="Contraer todo" className="text-[11px] font-medium text-azul2 hover:underline">
+                    Contraer
+                  </button>
+                </div>
+              </div>
+              <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto pr-1">
+                {grupos.map((g) => {
+                  const color = colorDeEstandar(g.clave)
+                  return (
+                    <button
+                      key={g.clave}
+                      onClick={() => irAGrupo(g.clave, g.numero)}
+                      className={`flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] font-medium ${color.fondo} ${color.texto} hover:opacity-75`}
+                      title={g.clave}
+                    >
+                      <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded ${color.badge} text-[9px] font-bold text-white`}>
+                        {g.numero}
+                      </span>
+                      <span className="truncate">{g.clave.replace('Estándar de ', '')}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   )
 }
@@ -1250,10 +1254,10 @@ function FilaCriterio({
           : colorOrigen.fondoItem
 
   return (
-    <div className={`rounded-xl border border-slate-200 ${tintFondo} p-3.5 shadow-sm transition-shadow hover:shadow-md`}>
-      <div className="flex items-start gap-3">
+    <div className={`rounded-xl border border-slate-300 ${tintFondo} p-2.5 shadow-sm transition-shadow hover:shadow-md`}>
+      <div className="flex items-start gap-2.5">
         <span
-          className={`mt-0.5 flex h-6 shrink-0 items-center justify-center rounded-md px-2 text-xs font-bold tabular-nums text-white ${color.badge}`}
+          className={`mt-0.5 flex h-5 shrink-0 items-center justify-center rounded-md px-1.5 text-[11px] font-bold tabular-nums text-white ${color.badge}`}
         >
           {/* Si el Item ya trae el Numeral Servicio como prefijo (caso
               ISO 9001, ej. "8.2.1 a)"), no se repite (evitar "8.8.2.1 a)"). */}
@@ -1261,9 +1265,9 @@ function FilaCriterio({
             ? criterio.item
             : `${criterio.numeral_servicio}.${criterio.item ?? criterio.numero}`}
         </span>
-        <div className="flex-1 text-sm leading-relaxed text-slate-700">{criterio.criterio}</div>
+        <div className="flex-1 text-xs leading-relaxed text-slate-700">{criterio.criterio}</div>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+      <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
         {guardando && <Loader2 size={14} className="animate-spin text-slate-400" />}
         <div className="flex shrink-0 items-center gap-1.5">
           {botones.map((b) => (
@@ -1288,7 +1292,7 @@ function FilaCriterio({
           disabled={soloLectura}
           defaultValue={respuesta?.observacion ?? ''}
           onBlur={(e) => onObservacion(e.target.value)}
-          className="campo min-w-[180px] flex-1 text-sm"
+          className="campo min-w-[180px] flex-1"
         />
       </div>
     </div>
@@ -1355,7 +1359,7 @@ function FilaEtiqueta({ etiqueta, valor, tono }: { etiqueta: string; valor: stri
 
 function Campo({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <label className={`block text-sm ${className}`}>
+    <label className={`block text-xs ${className}`}>
       <span className="mb-1 block font-medium text-slate-600">{label}</span>
       {children}
     </label>
