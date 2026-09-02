@@ -22,7 +22,10 @@ export default function Catalogos() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2">
+      {/* Cabecera de pestañas fija al hacer scroll (pedido 2026-09-02, punto
+          4) — fondo solido igual al de la pagina para que las filas de la
+          tabla no se transparenten al quedar debajo. */}
+      <div className="sticky top-0 z-20 mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-[#dde3ee] pb-2 pt-1">
         <h1 className="text-lg font-semibold text-azul">Catálogos</h1>
         <div className="flex flex-wrap gap-1">
           <BotonTab activo={tab === 'servicios1732'} onClick={() => setTab('servicios1732')}>
@@ -192,7 +195,7 @@ function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
         se captura al iniciar la auto-evaluación.
       </p>
 
-      <FilterBar>
+      <FilterBar sticky className="top-12">
         <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Buscar servicio</span>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
@@ -235,7 +238,7 @@ function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
+              <tr className="bg-azul text-left text-white">
                 <th className="py-1 pr-3">Servicio</th>
                 <th className="py-1 pr-3">Grupo</th>
                 <th className="py-1 pr-3">Descripción</th>
@@ -567,7 +570,7 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
           para esa combinación) — mismo patrón que Nueva auto-evaluación.
           Ancho fijo por campo para que quepan los 6 filtros + Exportar en
           una sola línea. */}
-      <FilterBar>
+      <FilterBar sticky className="top-12">
         <CampoFiltro label="Buscar en criterio" className="w-24">
           <input
             value={busqueda}
@@ -684,7 +687,7 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-500">
+                <tr className="bg-azul text-left text-white">
                   <th className="py-1 pr-3">No.</th>
                   <th className="py-1 pr-3">Item</th>
                   <th className="py-1 pr-3">Página</th>
@@ -1071,7 +1074,7 @@ function CatalogoSimpleTab({
         <Boton onClick={() => setEditando('nuevo')}>Nueva {etiquetaSingular}</Boton>
       </div>
 
-      <FilterBar>
+      <FilterBar sticky className="top-12">
         <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Buscar</span>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
@@ -1088,7 +1091,7 @@ function CatalogoSimpleTab({
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
+              <tr className="bg-azul text-left text-white">
                 <th className="py-1 pr-3">{etiquetaPlural}</th>
                 <th className="py-1 pr-3" />
               </tr>
@@ -1261,7 +1264,7 @@ function SedesTab() {
         </Boton>
       </div>
 
-      <FilterBar>
+      <FilterBar sticky className="top-12">
         <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Buscar</span>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
@@ -1278,7 +1281,7 @@ function SedesTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-slate-500">
+              <tr className="bg-azul text-left text-white">
                 <th className="py-1 pr-3">Sede</th>
                 <th className="py-1 pr-3">Empresa</th>
                 <th className="py-1 pr-3" />

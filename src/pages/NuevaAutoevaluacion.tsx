@@ -906,6 +906,11 @@ export default function NuevaAutoevaluacion() {
 
   return (
     <div>
+      {/* Título de la resolución que se está gestionando (pedido
+          2026-09-02, punto 1) — antes, al entrar a diligenciar, no había
+          ninguna indicación de con cuál de las 3 resoluciones se estaba
+          trabajando. */}
+      <PageHeader titulo={resolucion ? RESOLUCIONES[resolucion].label : 'Auto-evaluación'} />
       <div className="mb-3 flex items-center justify-between gap-3">
         <button
           onClick={() => (estado === 'borrador' ? setConfirmarSalir(true) : navigate('/'))}
@@ -1100,7 +1105,7 @@ export default function NuevaAutoevaluacion() {
                 Descripción del servicio
               </span>
               {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
-                <div className="max-h-32 overflow-y-auto rounded-lg bg-white/60 p-1.5 pr-2 text-xs leading-relaxed text-slate-600">
+                <div className="max-h-60 overflow-y-auto rounded-lg bg-white/60 p-1.5 pr-2 text-xs leading-relaxed text-slate-600">
                   {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
                   {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
                 </div>
@@ -1121,7 +1126,7 @@ export default function NuevaAutoevaluacion() {
                   </button>
                 </div>
               </div>
-              <div className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto pr-1">
+              <div className="grid max-h-60 grid-cols-1 gap-1 overflow-y-auto pr-1">
                 {grupos.map((g) => {
                   const color = colorDeEstandar(g.clave)
                   return (

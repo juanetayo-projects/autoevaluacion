@@ -47,7 +47,7 @@ export default function Usuarios() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-500">
+                <tr className="bg-azul text-left text-white">
                   <th className="py-1 pr-3">Nombre</th>
                   <th className="py-1 pr-3">Email</th>
                   <th className="py-1 pr-3">Rol</th>

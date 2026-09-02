@@ -36,9 +36,24 @@ export function PageHeader({ titulo, acciones }: { titulo: string; acciones?: Re
 }
 
 // --- Barra de filtros reutilizable ---
-export function FilterBar({ children, className = '' }: { children: ReactNode; className?: string }) {
+// `sticky` (pedido 2026-09-02, punto 4): la deja fija al hacer scroll de la
+// tabla de abajo — el llamador debe incluir su propio `top-*` en `className`
+// (ej. "top-0" cuando es la única barra fija, o "top-14" cuando va debajo de
+// otra barra fija como las pestañas de Catálogos) porque la posición depende
+// de qué más está fijo arriba en esa pantalla en particular.
+export function FilterBar({
+  children,
+  className = '',
+  sticky = false,
+}: {
+  children: ReactNode
+  className?: string
+  sticky?: boolean
+}) {
   return (
-    <div className={`mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-300 bg-white p-3 shadow-md ${className}`}>
+    <div
+      className={`mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-300 bg-white p-3 shadow-md ${sticky ? 'sticky z-10' : ''} ${className}`}
+    >
       {children}
     </div>
   )

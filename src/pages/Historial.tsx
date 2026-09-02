@@ -143,7 +143,7 @@ export default function Historial() {
     <div>
       <PageHeader titulo="Auto-Evaluaciones" />
 
-      <FilterBar>
+      <FilterBar sticky className="top-0">
         <label className="text-xs">
           <span className="mb-1 block font-medium text-slate-600">Buscar servicio</span>
           <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="campo" />
@@ -188,7 +188,7 @@ export default function Historial() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-slate-500">
+                <tr className="bg-azul text-left text-white">
                   <th className="py-1 pr-3">Fecha</th>
                   <th className="py-1 pr-3">Resolución</th>
                   <th className="py-1 pr-3">Servicio</th>

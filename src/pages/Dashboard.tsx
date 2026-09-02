@@ -724,7 +724,7 @@ export default function Dashboard() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="border-b border-slate-200 text-left text-slate-500">
+                        <tr className="bg-azul text-left text-white">
                           <th className="py-1 pr-2" />
                           <th className="py-1 pr-3">Fecha</th>
                           <th className="py-1 pr-3">Empresa</th>
@@ -1054,7 +1054,7 @@ function DesgloseEstandar({ datos }: { datos: Record<string, ConteoRespuestas> }
   return (
     <table className="w-full max-w-2xl text-xs">
       <thead>
-        <tr className="text-left text-slate-500">
+        <tr className="bg-azul text-left text-white">
           <th className="py-1 pr-4">Estándar</th>
           <th className="py-1 pr-4 text-right">Cumple</th>
           <th className="py-1 pr-4 text-right">No Cumple</th>
