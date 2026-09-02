@@ -1222,6 +1222,20 @@ function FiltroRespuestas({
   )
 }
 
+// Algunos criterios (p. ej. ISO 9001) traen el texto principal seguido de
+// "NOTA:" y varias "[NOTA n]" pegadas en el mismo párrafo. Se separan en
+// párrafos propios para que el evaluador las distinga de un vistazo.
+function renderCriterioTexto(texto: string) {
+  const partes = texto
+    .split(/(?=NOTA:)|(?=\[NOTA\s*\d+\])/)
+    .map((parte) => parte.trim())
+    .filter(Boolean)
+
+  if (partes.length <= 1) return <p>{texto}</p>
+
+  return partes.map((parte, i) => <p key={i}>{parte}</p>)
+}
+
 function FilaCriterio({
   criterio,
   color,
@@ -1270,7 +1284,7 @@ function FilaCriterio({
             ? criterio.item
             : `${criterio.numeral_servicio}.${criterio.item ?? criterio.numero}`}
         </span>
-        <div className="flex-1 text-xs leading-relaxed text-slate-700">{criterio.criterio}</div>
+        <div className="flex-1 space-y-2 text-xs leading-relaxed text-slate-700">{renderCriterioTexto(criterio.criterio)}</div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
         {guardando && <Loader2 size={14} className="animate-spin text-slate-400" />}
