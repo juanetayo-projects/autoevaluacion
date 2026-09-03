@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Maximize2, Minimize2, Download, FileQuestion } from 'lucide-react'
 
 // --- Card de métrica: tarjeta blanca con insignia circular de color
 // (pedido 2026-09-02: adaptación clara de modelo_dashboard.png, que usa
@@ -300,5 +300,78 @@ export function Spinner({ className = '' }: { className?: string }) {
     <div
       className={`h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-azul ${className}`}
     />
+  )
+}
+
+// --- Visor de archivo adjunto (pedido 2026-09-03): reemplaza abrir el
+// adjunto en una pestaña nueva del navegador por un modal con vista previa
+// (imagen o PDF), opción de ampliar, y descarga real vía blob (evita que el
+// atributo `download` sea ignorado en URLs firmadas de otro origen). ---
+export type ArchivoVisor = { nombre: string; url?: string }
+
+export function VisorArchivo({ archivo, onClose }: { archivo: ArchivoVisor | null; onClose: () => void }) {
+  const [ampliado, setAmpliado] = useState(false)
+  const [descargando, setDescargando] = useState(false)
+
+  useEffect(() => {
+    if (!archivo) setAmpliado(false)
+  }, [archivo])
+
+  if (!archivo) return null
+
+  const ext = archivo.nombre.split('.').pop()?.toLowerCase() ?? ''
+  const esImagen = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)
+  const esPdf = ext === 'pdf'
+
+  async function descargar() {
+    if (!archivo?.url) return
+    setDescargando(true)
+    try {
+      const res = await fetch(archivo.url)
+      const blob = await res.blob()
+      const urlLocal = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = urlLocal
+      a.download = archivo.nombre
+      a.click()
+      URL.revokeObjectURL(urlLocal)
+    } finally {
+      setDescargando(false)
+    }
+  }
+
+  return (
+    <Modal open={!!archivo} onClose={onClose} titulo={archivo.nombre} ancho={ampliado ? 'max-w-5xl' : 'max-w-2xl'}>
+      <div className="flex flex-col gap-3">
+        <div
+          className={`flex items-center justify-center overflow-auto rounded-lg border border-slate-200 bg-slate-50 ${
+            ampliado ? 'h-[75vh]' : 'h-[50vh]'
+          }`}
+        >
+          {esImagen && archivo.url ? (
+            <img src={archivo.url} alt={archivo.nombre} className="max-h-full max-w-full object-contain" />
+          ) : esPdf && archivo.url ? (
+            <iframe src={archivo.url} title={archivo.nombre} className="h-full w-full" />
+          ) : (
+            <div className="flex flex-col items-center gap-2 p-8 text-center text-xs text-slate-400">
+              <FileQuestion size={28} />
+              Vista previa no disponible para este tipo de archivo.
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          {esImagen && (
+            <Boton variante="secundario" className="flex items-center gap-1.5" onClick={() => setAmpliado((v) => !v)}>
+              {ampliado ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              {ampliado ? 'Reducir' : 'Ampliar'}
+            </Boton>
+          )}
+          <Boton className="flex items-center gap-1.5" onClick={descargar} disabled={descargando}>
+            <Download size={14} />
+            {descargando ? 'Descargando…' : 'Descargar'}
+          </Boton>
+        </div>
+      </div>
+    </Modal>
   )
 }

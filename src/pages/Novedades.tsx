@@ -7,7 +7,6 @@ import {
   MinusCircle,
   Loader2,
   Paperclip,
-  Download,
   ChevronRight,
   Building2,
   BedDouble,
@@ -19,7 +18,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { Badge, Boton, Card, PageHeader, Spinner } from '../components/ui/ui'
+import { Badge, Boton, Card, PageHeader, Spinner, VisorArchivo, type ArchivoVisor } from '../components/ui/ui'
 import { RESOLUCIONES, type ResolucionKey } from '../domain/resoluciones'
 
 // Checklist del módulo "Novedades" (Res.3100, cap. 10.5 Trámite de
@@ -143,6 +142,7 @@ export default function Novedades() {
   const [orden, setOrden] = useState<Orden>('numeral')
   const [itemActivo, setItemActivo] = useState<number | null>(null)
   const [subiendoEvidencia, setSubiendoEvidencia] = useState(false)
+  const [archivoVisor, setArchivoVisor] = useState<ArchivoVisor | null>(null)
 
   useEffect(() => {
     if (id) cargar(id)
@@ -360,11 +360,14 @@ export default function Novedades() {
               ) : (
                 <div className="flex flex-col gap-1">
                   {adjuntos.map((a) => (
-                    <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-azul2 hover:underline">
-                      <Paperclip size={11} />
+                    <button
+                      key={a.id}
+                      onClick={() => setArchivoVisor({ nombre: a.nombre_archivo, url: a.url })}
+                      className="flex items-center gap-1 text-left text-azul2 hover:underline"
+                    >
+                      <Paperclip size={11} className="shrink-0" />
                       <span className="truncate">{a.nombre_archivo}</span>
-                      <Download size={11} />
-                    </a>
+                    </button>
                   ))}
                 </div>
               )}
@@ -506,10 +509,13 @@ export default function Novedades() {
               onComentario={(c) => guardarRespuesta(itemActivoData.id, { comentario: c })}
               onSubirEvidencia={(archivos) => subirEvidencias(itemActivoData.id, archivos)}
               onEliminarEvidencia={eliminarEvidencia}
+              onVerArchivo={setArchivoVisor}
             />
           )}
         </div>
       )}
+
+      <VisorArchivo archivo={archivoVisor} onClose={() => setArchivoVisor(null)} />
     </div>
   )
 }
@@ -792,6 +798,7 @@ function PanelDetalle({
   onComentario,
   onSubirEvidencia,
   onEliminarEvidencia,
+  onVerArchivo,
 }: {
   item: CatalogoItem
   respuesta?: RespuestaLocal
@@ -801,6 +808,7 @@ function PanelDetalle({
   onComentario: (c: string) => void
   onSubirEvidencia: (archivos: FileList) => void
   onEliminarEvidencia: (evidencia: Evidencia) => void
+  onVerArchivo: (archivo: ArchivoVisor) => void
 }) {
   const [comentario, setComentario] = useState(respuesta?.comentario ?? '')
   useEffect(() => setComentario(respuesta?.comentario ?? ''), [item.id, respuesta?.comentario])
@@ -841,13 +849,16 @@ function PanelDetalle({
           <div className="flex flex-col gap-1.5">
             {evidencias.map((e) => (
               <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-1.5">
-                <a href={e.url} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-1.5 text-azul2 hover:underline">
+                <button
+                  onClick={() => onVerArchivo({ nombre: e.nombre_archivo, url: e.url })}
+                  className="flex min-w-0 items-center gap-1.5 text-left text-azul2 hover:underline"
+                >
                   <Paperclip size={12} className="shrink-0" />
                   <span className="min-w-0">
                     <span className="block truncate">{e.nombre_archivo}</span>
                     <span className="block text-[10px] text-slate-400">{formatoTamano(e.tamano_bytes)}</span>
                   </span>
-                </a>
+                </button>
                 <button onClick={() => onEliminarEvidencia(e)} className="shrink-0 text-slate-400 hover:text-red-600">
                   <Trash2 size={13} />
                 </button>
