@@ -105,7 +105,6 @@ export default function Historial() {
   const [guardandoHabilitar, setGuardandoHabilitar] = useState(false)
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFinal, setFechaFinal] = useState(() => new Date().toISOString().slice(0, 10))
-  const [personasEvaluadas, setPersonasEvaluadas] = useState('')
   const [auditores, setAuditores] = useState<string[]>([])
   const [evaluados, setEvaluados] = useState<string[]>([])
   const [comentarios, setComentarios] = useState('')
@@ -150,7 +149,6 @@ export default function Historial() {
     setErrorHabilitar('')
     setFechaInicio(fila.fecha)
     setFechaFinal(new Date().toISOString().slice(0, 10))
-    setPersonasEvaluadas('')
     setAuditores([])
     setEvaluados([])
     setComentarios('')
@@ -190,7 +188,6 @@ export default function Historial() {
       .update({
         habilitada: true,
         fecha_final: fechaFinal,
-        personas_evaluadas: personasEvaluadas ? Number(personasEvaluadas) : null,
         comentarios_habilitacion: comentarios || null,
         requiere_plan_accion: requierePlanAccion,
         plan_accion_titulo: requierePlanAccion ? planAccionTitulo : null,
@@ -433,17 +430,6 @@ export default function Historial() {
             <ListaNombres etiqueta="Auditor(es)" valores={auditores} onCambiar={setAuditores} />
             <ListaNombres etiqueta="Persona(s) evaluada(s)" valores={evaluados} onCambiar={setEvaluados} />
           </div>
-
-          <label className="text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Personas evaluadas (total)</span>
-            <input
-              type="number"
-              min={0}
-              value={personasEvaluadas}
-              onChange={(e) => setPersonasEvaluadas(e.target.value)}
-              className="campo max-w-[10rem]"
-            />
-          </label>
 
           <label className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">Observaciones</span>
