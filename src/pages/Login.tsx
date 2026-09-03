@@ -48,7 +48,6 @@ export default function Login() {
               className="h-14"
             />
             <h1 className="text-lg font-semibold text-azul">Auto-evaluaciones</h1>
-            <p className="text-sm text-slate-500">Habilitación Res. 1732</p>
           </div>
 
           <form onSubmit={entrar} className="flex flex-col gap-4">

@@ -21,6 +21,7 @@ type ServicioCatalogo = {
   descripcion: string | null
   estructura: string | null
   grupo_id: number
+  activo: boolean
   grupo: { nombre: string } | null
 }
 type Criterio = {
@@ -163,7 +164,7 @@ export default function NuevaAutoevaluacion() {
     const cfg = RESOLUCIONES[res]
     const { data: sr } = await supabase
       .from(cfg.tablaServicios)
-      .select(`id, nombre, descripcion, estructura, grupo_id:${cfg.columnaGrupoId}, grupo:${cfg.tablaGrupos}(nombre)`)
+      .select(`id, nombre, descripcion, estructura, grupo_id:${cfg.columnaGrupoId}, activo, grupo:${cfg.tablaGrupos}(nombre)`)
       .neq('numeral', cfg.numeralUniversal)
       .order('nombre')
     setServiciosRes((sr as unknown as ServicioCatalogo[]) ?? [])
@@ -728,11 +729,17 @@ export default function NuevaAutoevaluacion() {
                 className="campo py-1.5"
               >
                 <option value="">Selecciona…</option>
-                {serviciosRes.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre}
-                  </option>
-                ))}
+                {/* Servicios inactivados no aparecen para elegir uno nuevo
+                    (pedido 2026-09-03, punto 1) — salvo que ya sea el
+                    elegido de un borrador existente, para no perder el dato
+                    ya guardado. */}
+                {serviciosRes
+                  .filter((s) => s.activo || s.id === servicioResId)
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nombre}
+                    </option>
+                  ))}
               </select>
             </Campo>
             {servicioSeleccionado && (

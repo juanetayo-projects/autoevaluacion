@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { Boton, Card, FilterBar, Modal, SelectorDesplegable, Spinner } from '../../components/ui/ui'
+import { Badge, Boton, Card, FilterBar, Modal, SelectorDesplegable, Spinner } from '../../components/ui/ui'
 import { exportarCriteriosExcel, exportarServiciosExcel } from '../../lib/exportarCatalogo'
 import { RESOLUCIONES, type ResolucionKey } from '../../domain/resoluciones'
 
@@ -126,6 +126,7 @@ type ServicioCatalogo = {
   descripcion: string | null
   estructura: string | null
   grupo_id: number
+  activo: boolean
   grupo: { nombre: string } | null
 }
 
@@ -149,7 +150,7 @@ function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
     const [{ data: sr }, { data: gr }] = await Promise.all([
       supabase
         .from(cfg.tablaServicios)
-        .select(`id, numeral, nombre, descripcion, estructura, grupo_id:${cfg.columnaGrupoId}, grupo:${cfg.tablaGrupos}(nombre)`)
+        .select(`id, numeral, nombre, descripcion, estructura, grupo_id:${cfg.columnaGrupoId}, activo, grupo:${cfg.tablaGrupos}(nombre)`)
         .neq('numeral', cfg.numeralUniversal)
         .order('nombre'),
       supabase.from(cfg.tablaGrupos).select('id, nombre').neq('numeral', cfg.numeralUniversal).order('nombre'),
@@ -164,6 +165,15 @@ function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
     if (busqueda && !s.nombre.toLowerCase().includes(busqueda.toLowerCase())) return false
     return true
   })
+
+  // Inactivar/activar (pedido 2026-09-03, punto 1): no se elimina el
+  // servicio (las auto-evaluaciones ya creadas lo referencian por FK), solo
+  // se oculta de los desplegables activos de la app (ver filtro `.activo` en
+  // NuevaAutoevaluacion y en el selector de Servicio de este mismo módulo).
+  async function alternarActivo(s: ServicioCatalogo) {
+    await supabase.from(cfg.tablaServicios).update({ activo: !s.activo }).eq('id', s.id)
+    cargar()
+  }
 
   async function exportarExcel() {
     setExportando(true)
@@ -242,18 +252,30 @@ function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
                 <th className="py-1 pr-3">Servicio</th>
                 <th className="py-1 pr-3">Grupo</th>
                 <th className="py-1 pr-3">Descripción</th>
+                <th className="py-1 pr-3">Estado</th>
                 <th className="py-1 pr-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtrados.map((s) => (
-                <tr key={s.id}>
-                  <td className="py-1 pr-3 font-medium text-slate-700">{s.nombre}</td>
+                <tr key={s.id} className={!s.activo ? 'bg-red-50/70' : undefined}>
+                  <td className={`py-1 pr-3 font-medium ${s.activo ? 'text-slate-700' : 'text-slate-400 line-through'}`}>
+                    {s.nombre}
+                  </td>
                   <td className="py-1 pr-3">{s.grupo?.nombre ?? '—'}</td>
                   <td className="max-w-md truncate py-1 pr-3 text-slate-500">{s.descripcion ?? '—'}</td>
-                  <td className="py-1 pr-3 text-right">
-                    <button onClick={() => setEditando(s)} className="text-xs font-medium text-azul2 hover:underline">
+                  <td className="py-1 pr-3">
+                    <Badge tono={s.activo ? 'exito' : 'peligro'}>{s.activo ? 'Activo' : 'Inactivo'}</Badge>
+                  </td>
+                  <td className="flex gap-3 py-1 pr-3 text-right text-xs">
+                    <button onClick={() => setEditando(s)} className="font-medium text-azul2 hover:underline">
                       Editar
+                    </button>
+                    <button
+                      onClick={() => alternarActivo(s)}
+                      className={`font-medium hover:underline ${s.activo ? 'text-red-600' : 'text-emerald-600'}`}
+                    >
+                      {s.activo ? 'Inactivar' : 'Activar'}
                     </button>
                   </td>
                 </tr>
@@ -394,7 +416,7 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
   // Multi-selección (pedido 2026-08-28, punto 8): arrays vacíos = "Todas".
   const [complejidadFiltro, setComplejidadFiltro] = useState<string[]>([])
   const [modalidadFiltro, setModalidadFiltro] = useState<string[]>([])
-  const [serviciosFull, setServiciosFull] = useState<{ id: number; nombre: string; grupo_id: number }[]>([])
+  const [serviciosFull, setServiciosFull] = useState<{ id: number; nombre: string; grupo_id: number; activo: boolean }[]>([])
   const [grupos, setGrupos] = useState<Grupo[]>([])
   // Globales, sin filtrar — alimentan el modal de edición (ahí sí se puede
   // asignar cualquier Estándar/Complejidad/Modalidad a un criterio nuevo).
@@ -412,15 +434,19 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
   const [editando, setEditando] = useState<CriterioCatalogo | 'nuevo' | null>(null)
   const [eliminando, setEliminando] = useState<CriterioCatalogo | null>(null)
 
-  const servicios = grupoFiltro ? serviciosFull.filter((s) => s.grupo_id === grupoFiltro) : serviciosFull
+  // El desplegable de filtro solo debe ofrecer servicios activos (pedido
+  // 2026-09-03, punto 1) — salvo que el filtro ya seleccionado apunte a uno
+  // inactivo (se deja visible para no perder el filtro aplicado).
+  const servicios = serviciosFull.filter((s) => s.activo || s.id === servicioFiltro)
+  const serviciosDelGrupo = grupoFiltro ? servicios.filter((s) => s.grupo_id === grupoFiltro) : servicios
 
   useEffect(() => {
-    const columnasServiciosFull: string = `id, nombre, grupo_id:${cfg.columnaGrupoId}`
+    const columnasServiciosFull: string = `id, nombre, grupo_id:${cfg.columnaGrupoId}, activo`
     supabase
       .from(cfg.tablaServicios)
       .select(columnasServiciosFull)
       .order('nombre')
-      .then(({ data }) => setServiciosFull((data as unknown as { id: number; nombre: string; grupo_id: number }[]) ?? []))
+      .then(({ data }) => setServiciosFull((data as unknown as { id: number; nombre: string; grupo_id: number; activo: boolean }[]) ?? []))
     supabase
       .from(cfg.tablaGrupos)
       .select('id, nombre')
@@ -608,7 +634,7 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
             className="campo"
           >
             <option value="">Todos</option>
-            {servicios.map((s) => (
+            {serviciosDelGrupo.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nombre}
               </option>
@@ -759,7 +785,9 @@ function CriteriosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
         resolucion={resolucion}
         registro={editando}
         grupos={grupos}
-        servicios={serviciosFull}
+        servicios={serviciosFull.filter(
+          (s) => s.activo || (editando !== 'nuevo' && editando?.servicio_id === s.id),
+        )}
         opcionesEstandar={opcionesEstandar}
         opcionesComplejidad={opcionesComplejidad}
         opcionesModalidad={opcionesModalidad}

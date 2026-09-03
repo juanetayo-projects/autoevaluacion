@@ -176,25 +176,44 @@ export function SelectorMultiple({
   function alternar(valor: string) {
     onCambiar(seleccionados.includes(valor) ? seleccionados.filter((v) => v !== valor) : [...seleccionados, valor])
   }
+  // Chip "Seleccionar todos" (pedido 2026-09-03, punto 3): antes había que
+  // marcar cada opción una por una para incluirlas todas explícitamente.
+  const todosSeleccionados = opciones.length > 0 && seleccionados.length === opciones.length
+  function alternarTodos() {
+    onCambiar(todosSeleccionados ? [] : [...opciones])
+  }
   return (
     <div className="campo flex min-h-[2.25rem] flex-wrap items-center gap-1.5 py-1.5">
       {opciones.length === 0 ? (
         <span className="text-slate-400">Todas</span>
       ) : (
-        opciones.map((o) => (
+        <>
           <button
-            key={o}
             type="button"
-            onClick={() => alternar(o)}
-            className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
-              seleccionados.includes(o)
-                ? 'border-azul bg-azul text-white'
-                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            onClick={alternarTodos}
+            className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${
+              todosSeleccionados
+                ? 'border-azul2 bg-azul2 text-white'
+                : 'border-slate-300 bg-slate-50 text-slate-600 hover:bg-slate-100'
             }`}
           >
-            {o}
+            {todosSeleccionados ? 'Quitar todos' : 'Seleccionar todos'}
           </button>
-        ))
+          {opciones.map((o) => (
+            <button
+              key={o}
+              type="button"
+              onClick={() => alternar(o)}
+              className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                seleccionados.includes(o)
+                  ? 'border-azul bg-azul text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {o}
+            </button>
+          ))}
+        </>
       )}
     </div>
   )
