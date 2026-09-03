@@ -455,6 +455,11 @@ export default function NuevaAutoevaluacion() {
     })
   }, [criterios])
 
+  // Descripción del servicio: colapsada por defecto con "Ver más/Ver menos"
+  // (pedido 2026-09-03) en vez del scroll interno que tenía antes — el
+  // scroll dentro de una barra lateral ya de por sí compacta era poco
+  // sutil/incómodo de operar.
+  const [descripcionExpandida, setDescripcionExpandida] = useState(false)
   const [gruposColapsados, setGruposColapsados] = useState<Record<string, boolean>>({})
   const [filtroGrupo, setFiltroGrupo] = useState<Record<string, FiltroRespuestaValor>>({})
   const [filtroServicioGrupo, setFiltroServicioGrupo] = useState<Record<string, FiltroServicioValor>>({})
@@ -1112,9 +1117,22 @@ export default function NuevaAutoevaluacion() {
                 Descripción del servicio
               </span>
               {servicioSeleccionado?.descripcion || servicioSeleccionado?.estructura ? (
-                <div className="max-h-60 overflow-y-auto rounded-lg bg-white/60 p-1.5 pr-2 text-xs leading-relaxed text-slate-600">
-                  {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
-                  {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
+                <div>
+                  <div
+                    className={`rounded-lg bg-white/60 p-1.5 text-xs leading-relaxed text-slate-600 ${
+                      descripcionExpandida ? '' : 'max-h-24 overflow-hidden'
+                    }`}
+                  >
+                    {servicioSeleccionado?.descripcion && <p>{servicioSeleccionado.descripcion}</p>}
+                    {servicioSeleccionado?.estructura && <p className="mt-1 text-slate-500">{servicioSeleccionado.estructura}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDescripcionExpandida((v) => !v)}
+                    className="mt-1 text-[11px] font-medium text-azul2 hover:underline"
+                  >
+                    {descripcionExpandida ? 'Ver menos' : 'Ver más'}
+                  </button>
                 </div>
               ) : (
                 <p className="text-xs text-slate-400">Sin descripción.</p>
