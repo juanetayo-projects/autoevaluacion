@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ClipboardPlus,
   History,
+  FileWarning,
   Settings2,
   Users,
   LogOut,
@@ -55,6 +56,13 @@ export default function Layout({ children }: { children: ReactNode }) {
           >
             <History size={18} />
             Auto-Evaluaciones
+          </NavLink>
+          <NavLink
+            to="/novedades"
+            className={({ isActive }) => `${itemBase} ${isActive ? itemActivo : itemInactivo}`}
+          >
+            <FileWarning size={18} />
+            Novedades
           </NavLink>
 
           <div className="mt-4 border-t border-white/15 pt-3">

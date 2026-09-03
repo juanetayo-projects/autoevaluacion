@@ -7,6 +7,8 @@ import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import NuevaAutoevaluacion from './pages/NuevaAutoevaluacion'
 import Historial from './pages/Historial'
+import NovedadesHistorial from './pages/NovedadesHistorial'
+import Novedades from './pages/Novedades'
 import Catalogos from './pages/admin/Catalogos'
 import Usuarios from './pages/admin/Usuarios'
 
@@ -68,6 +70,22 @@ export default function App() {
             element={
               <Protegido>
                 <Historial />
+              </Protegido>
+            }
+          />
+          <Route
+            path="/novedades"
+            element={
+              <Protegido>
+                <NovedadesHistorial />
+              </Protegido>
+            }
+          />
+          <Route
+            path="/novedades/:id"
+            element={
+              <Protegido>
+                <Novedades />
               </Protegido>
             }
           />

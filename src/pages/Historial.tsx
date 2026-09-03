@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ShieldCheck, Trash2 } from 'lucide-react'
+import { ShieldCheck, Trash2, X, FileWarning, Paperclip } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Badge, Boton, Card, FilterBar, Modal, PageHeader, Spinner } from '../components/ui/ui'
@@ -18,12 +18,77 @@ type Fila = {
   servicio_iso9001: { nombre: string } | null
   usuario: { nombre: string } | null
   sede: { nombre: string } | null
+  habilitacion_novedades: { id: string }[] | null
 }
 
 function nombreServicio(f: Fila) {
   const servicio =
     f.resolucion === 'res3100' ? f.servicio_res3100 : f.resolucion === 'iso9001' ? f.servicio_iso9001 : f.servicio_res1732
   return servicio?.nombre ?? '—'
+}
+
+// --- Lista editable de nombres (auditor(es) / evaluado(s)): chip + input,
+// porque pueden participar uno o varios en la misma habilitación y no
+// siempre tienen usuario en la app (personal externo o del prestador). ---
+function ListaNombres({
+  etiqueta,
+  valores,
+  onCambiar,
+}: {
+  etiqueta: string
+  valores: string[]
+  onCambiar: (valores: string[]) => void
+}) {
+  const [nuevo, setNuevo] = useState('')
+
+  function agregar() {
+    const v = nuevo.trim()
+    if (!v) return
+    onCambiar([...valores, v])
+    setNuevo('')
+  }
+
+  return (
+    <div className="text-xs">
+      <span className="mb-1 block font-medium text-slate-600">{etiqueta}</span>
+      <div className="flex gap-2">
+        <input
+          value={nuevo}
+          onChange={(e) => setNuevo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              agregar()
+            }
+          }}
+          placeholder="Nombre y presiona Enter"
+          className="campo flex-1"
+        />
+        <Boton type="button" variante="secundario" onClick={agregar}>
+          Agregar
+        </Boton>
+      </div>
+      {valores.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {valores.map((v, i) => (
+            <span
+              key={`${v}-${i}`}
+              className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700"
+            >
+              {v}
+              <button
+                type="button"
+                onClick={() => onCambiar(valores.filter((_, j) => j !== i))}
+                className="text-slate-400 hover:text-red-600"
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function Historial() {
@@ -38,9 +103,13 @@ export default function Historial() {
   const [borrando, setBorrando] = useState(false)
   const [habilitando, setHabilitando] = useState<Fila | null>(null)
   const [guardandoHabilitar, setGuardandoHabilitar] = useState(false)
+  const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFinal, setFechaFinal] = useState(() => new Date().toISOString().slice(0, 10))
   const [personasEvaluadas, setPersonasEvaluadas] = useState('')
+  const [auditores, setAuditores] = useState<string[]>([])
+  const [evaluados, setEvaluados] = useState<string[]>([])
   const [comentarios, setComentarios] = useState('')
+  const [adjuntos, setAdjuntos] = useState<File[]>([])
   const [requierePlanAccion, setRequierePlanAccion] = useState(false)
   const [planAccionTitulo, setPlanAccionTitulo] = useState('')
   const [planAccionDescripcion, setPlanAccionDescripcion] = useState('')
@@ -61,7 +130,7 @@ export default function Historial() {
     const { data } = await supabase
       .from('autoevaluaciones')
       .select(
-        'id, fecha, estado, habilitada, lugar, resolucion, servicio_res1732:servicios_res1732(nombre), servicio_res3100:servicios_res3100(nombre), servicio_iso9001:servicios_iso9001(nombre), usuario:profiles(nombre), sede:sedes(nombre)',
+        'id, fecha, estado, habilitada, lugar, resolucion, servicio_res1732:servicios_res1732(nombre), servicio_res3100:servicios_res3100(nombre), servicio_iso9001:servicios_iso9001(nombre), usuario:profiles(nombre), sede:sedes(nombre), habilitacion_novedades:habilitaciones_novedades(id)',
       )
       .order('creado_en', { ascending: false })
     setFilas((data as unknown as Fila[]) ?? [])
@@ -79,9 +148,13 @@ export default function Historial() {
 
   function abrirHabilitar(fila: Fila) {
     setErrorHabilitar('')
+    setFechaInicio(fila.fecha)
     setFechaFinal(new Date().toISOString().slice(0, 10))
     setPersonasEvaluadas('')
+    setAuditores([])
+    setEvaluados([])
     setComentarios('')
+    setAdjuntos([])
     setRequierePlanAccion(false)
     setPlanAccionTitulo('')
     setPlanAccionDescripcion('')
@@ -94,10 +167,15 @@ export default function Historial() {
   // autoevaluaciones_habilitada_requiere_finalizada). Fecha final es
   // obligatoria (cierra el período evaluado); si se marca que requiere Plan
   // de Acción, Título y Descripción también lo son.
+  //
+  // Al habilitar también se abre el módulo "Novedades" (Res.3100, cap.
+  // 10.5): se crea/actualiza un registro habilitaciones_novedades con el
+  // contexto de la revisión (fechas, auditor(es), evaluado(s), observaciones
+  // y adjuntos) y se navega directo al checklist de esa habilitación.
   async function habilitar() {
     if (!habilitando) return
-    if (!fechaFinal) {
-      setErrorHabilitar('La fecha final es obligatoria.')
+    if (!fechaInicio || !fechaFinal) {
+      setErrorHabilitar('La fecha de inicio y la fecha final son obligatorias.')
       return
     }
     if (requierePlanAccion && (!planAccionTitulo.trim() || !planAccionDescripcion.trim())) {
@@ -106,6 +184,7 @@ export default function Historial() {
     }
     setErrorHabilitar('')
     setGuardandoHabilitar(true)
+
     const { error } = await supabase
       .from('autoevaluaciones')
       .update({
@@ -118,13 +197,47 @@ export default function Historial() {
         plan_accion_descripcion: requierePlanAccion ? planAccionDescripcion : null,
       })
       .eq('id', habilitando.id)
-    setGuardandoHabilitar(false)
     if (error) {
+      setGuardandoHabilitar(false)
       setErrorHabilitar(error.message)
       return
     }
+
+    const { data: habilitacion, error: errorHab } = await supabase
+      .from('habilitaciones_novedades')
+      .upsert(
+        {
+          autoevaluacion_id: habilitando.id,
+          fecha_inicio: fechaInicio,
+          fecha_final: fechaFinal,
+          auditores,
+          evaluados,
+          observaciones: comentarios || null,
+          creado_por: perfil?.id,
+        },
+        { onConflict: 'autoevaluacion_id' },
+      )
+      .select('id')
+      .single()
+    if (errorHab || !habilitacion) {
+      setGuardandoHabilitar(false)
+      setErrorHabilitar(errorHab?.message ?? 'No se pudo crear el registro de Novedades.')
+      return
+    }
+
+    for (const archivo of adjuntos) {
+      const ruta = `${habilitacion.id}/${Date.now()}-${archivo.name}`
+      const { error: errorSubida } = await supabase.storage.from('novedades-adjuntos').upload(ruta, archivo)
+      if (!errorSubida) {
+        await supabase
+          .from('habilitaciones_novedades_adjuntos')
+          .insert({ habilitacion_id: habilitacion.id, nombre_archivo: archivo.name, ruta, subido_por: perfil?.id })
+      }
+    }
+
+    setGuardandoHabilitar(false)
     setHabilitando(null)
-    cargar()
+    navigate(`/novedades/${habilitacion.id}`)
   }
 
   async function deshabilitar(fila: Fila) {
@@ -240,6 +353,15 @@ export default function Historial() {
                         >
                           {f.estado === 'finalizada' ? 'Ver' : 'Continuar'}
                         </button>
+                        {f.habilitada && f.habilitacion_novedades?.[0] && (
+                          <button
+                            onClick={() => navigate(`/novedades/${f.habilitacion_novedades![0].id}`)}
+                            title="Ir a Novedades"
+                            className="text-amber-600 hover:text-amber-800"
+                          >
+                            <FileWarning size={15} />
+                          </button>
+                        )}
                         {puedeHabilitar &&
                           (f.habilitada ? (
                             <button
@@ -251,12 +373,11 @@ export default function Historial() {
                           ) : (
                             <button
                               onClick={() => abrirHabilitar(f)}
-                              disabled={f.estado !== 'finalizada'}
-                              title={
-                                f.estado !== 'finalizada'
-                                  ? 'Debes finalizar la auto-evaluación (todas las preguntas diligenciadas) antes de habilitarla'
-                                  : 'Habilitar'
-                              }
+                              // TEMPORAL (pedido 2026-09-03, punto 4): se deja el ícono
+                              // siempre activo para poder probar el módulo de Novedades
+                              // sin tener que finalizar una auto-evaluación completa.
+                              // Restaurar luego: disabled={f.estado !== 'finalizada'}
+                              title="Habilitar"
                               className="text-sky-600 hover:text-sky-800 disabled:cursor-not-allowed disabled:text-slate-300"
                             >
                               <ShieldCheck size={15} />
@@ -281,15 +402,24 @@ export default function Historial() {
         )}
       </Card>
 
-      <Modal open={!!habilitando} onClose={() => setHabilitando(null)} titulo="Habilitar auto-evaluación" ancho="max-w-lg">
+      <Modal open={!!habilitando} onClose={() => setHabilitando(null)} titulo="Habilitar auto-evaluación" ancho="max-w-2xl">
         <p className="mb-4 text-xs text-slate-600">
-          Auto-evaluación de <strong>{habilitando && nombreServicio(habilitando)}</strong> del {habilitando?.fecha}. Todas
-          sus preguntas ya están diligenciadas (auto-evaluación finalizada).
+          Auto-evaluación de <strong>{habilitando && nombreServicio(habilitando)}</strong> del {habilitando?.fecha}. Al
+          habilitar se abre el módulo de <strong>Novedades</strong> para esta auto-evaluación.
         </p>
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
             <label className="text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Fecha final</span>
+              <span className="mb-1 block font-medium text-slate-600">Fecha de inicio de la auto-evaluación</span>
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+                className="campo"
+              />
+            </label>
+            <label className="text-xs">
+              <span className="mb-1 block font-medium text-slate-600">Fecha final de la auto-evaluación</span>
               <input
                 type="date"
                 value={fechaFinal}
@@ -297,21 +427,58 @@ export default function Historial() {
                 className="campo"
               />
             </label>
-            <label className="text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Personas evaluadas</span>
-              <input
-                type="number"
-                min={0}
-                value={personasEvaluadas}
-                onChange={(e) => setPersonasEvaluadas(e.target.value)}
-                className="campo"
-              />
-            </label>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <ListaNombres etiqueta="Auditor(es)" valores={auditores} onCambiar={setAuditores} />
+            <ListaNombres etiqueta="Persona(s) evaluada(s)" valores={evaluados} onCambiar={setEvaluados} />
+          </div>
+
           <label className="text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Comentarios</span>
+            <span className="mb-1 block font-medium text-slate-600">Personas evaluadas (total)</span>
+            <input
+              type="number"
+              min={0}
+              value={personasEvaluadas}
+              onChange={(e) => setPersonasEvaluadas(e.target.value)}
+              className="campo max-w-[10rem]"
+            />
+          </label>
+
+          <label className="text-xs">
+            <span className="mb-1 block font-medium text-slate-600">Observaciones</span>
             <textarea value={comentarios} onChange={(e) => setComentarios(e.target.value)} className="campo" rows={2} />
           </label>
+
+          <label className="text-xs">
+            <span className="mb-1 block font-medium text-slate-600">Adjuntos</span>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => setAdjuntos((prev) => [...prev, ...Array.from(e.target.files ?? [])])}
+              className="campo"
+            />
+            {adjuntos.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1">
+                {adjuntos.map((a, i) => (
+                  <li key={`${a.name}-${i}`} className="flex items-center justify-between gap-2 text-[11px] text-slate-600">
+                    <span className="flex items-center gap-1 truncate">
+                      <Paperclip size={11} className="shrink-0" />
+                      {a.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAdjuntos((prev) => prev.filter((_, j) => j !== i))}
+                      className="shrink-0 text-slate-400 hover:text-red-600"
+                    >
+                      <X size={12} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </label>
+
           <div className="text-xs">
             <span className="mb-1 block font-medium text-slate-600">¿Requiere crear un Plan de Acción?</span>
             <div className="flex gap-2">

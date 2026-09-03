@@ -12,6 +12,7 @@ export const MODULOS_APP: ModuloApp[] = [
   { clave: 'dashboard', nombre: 'Dashboard', ruta: '/' },
   { clave: 'nueva-autoevaluacion', nombre: 'Nueva auto-evaluación', ruta: '/nueva' },
   { clave: 'historial', nombre: 'Auto-Evaluaciones', ruta: '/historial' },
+  { clave: 'novedades', nombre: 'Novedades', ruta: '/novedades' },
   { clave: 'catalogos', nombre: 'Catálogos', ruta: '/admin/catalogos' },
   { clave: 'usuarios', nombre: 'Usuarios', ruta: '/admin/usuarios' },
 ]
