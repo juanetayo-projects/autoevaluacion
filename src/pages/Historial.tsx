@@ -18,7 +18,9 @@ type Fila = {
   servicio_iso9001: { nombre: string } | null
   usuario: { nombre: string } | null
   sede: { nombre: string } | null
-  habilitacion_novedades: { id: string }[] | null
+  // PostgREST devuelve un objeto (no arreglo) porque autoevaluacion_id es
+  // unique en habilitaciones_novedades (relación a-uno detectada por FK).
+  habilitacion_novedades: { id: string } | null
 }
 
 function nombreServicio(f: Fila) {
@@ -100,6 +102,7 @@ export default function Historial() {
   const [filtroResolucion, setFiltroResolucion] = useState<'todas' | ResolucionKey>('todas')
   const [busqueda, setBusqueda] = useState('')
   const [eliminando, setEliminando] = useState<Fila | null>(null)
+  const [sinNovedades, setSinNovedades] = useState(false)
   const [borrando, setBorrando] = useState(false)
   const [habilitando, setHabilitando] = useState<Fila | null>(null)
   const [guardandoHabilitar, setGuardandoHabilitar] = useState(false)
@@ -350,15 +353,19 @@ export default function Historial() {
                         >
                           {f.estado === 'finalizada' ? 'Ver' : 'Continuar'}
                         </button>
-                        {f.habilitada && f.habilitacion_novedades?.[0] && (
-                          <button
-                            onClick={() => navigate(`/novedades/${f.habilitacion_novedades![0].id}`)}
-                            title="Ir a Novedades"
-                            className="text-amber-600 hover:text-amber-800"
-                          >
-                            <FileWarning size={15} />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            const habilitacionId = f.habilitacion_novedades?.id
+                            if (habilitacionId) navigate(`/novedades/${habilitacionId}`)
+                            else setSinNovedades(true)
+                          }}
+                          title={f.habilitacion_novedades ? 'Ver registro de Novedades' : 'Aún no tiene registro de Novedades'}
+                          className={
+                            f.habilitacion_novedades ? 'text-amber-600 hover:text-amber-800' : 'text-slate-300 hover:text-slate-400'
+                          }
+                        >
+                          <FileWarning size={15} />
+                        </button>
                         {puedeHabilitar &&
                           (f.habilitada ? (
                             <button
@@ -532,6 +539,16 @@ export default function Historial() {
             {borrando ? 'Eliminando…' : 'Eliminar'}
           </Boton>
         </div>
+      </Modal>
+
+      <Modal open={sinNovedades} onClose={() => setSinNovedades(false)} titulo="Sin registro de Novedades">
+        <p className="mb-4 text-xs text-slate-600">
+          Esta auto-evaluación todavía no tiene un registro de Novedades asociado. Se crea automáticamente al hacer
+          clic en <strong>Habilitar</strong> y diligenciar el modal correspondiente.
+        </p>
+        <Boton onClick={() => setSinNovedades(false)} className="w-full">
+          Entendido
+        </Boton>
       </Modal>
     </div>
   )
