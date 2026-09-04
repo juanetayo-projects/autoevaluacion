@@ -370,11 +370,12 @@ export default function Historial() {
                           ) : (
                             <button
                               onClick={() => abrirHabilitar(f)}
-                              // TEMPORAL (pedido 2026-09-03, punto 4): se deja el ícono
-                              // siempre activo para poder probar el módulo de Novedades
-                              // sin tener que finalizar una auto-evaluación completa.
-                              // Restaurar luego: disabled={f.estado !== 'finalizada'}
-                              title="Habilitar"
+                              disabled={f.estado !== 'finalizada'}
+                              title={
+                                f.estado !== 'finalizada'
+                                  ? 'Debes finalizar la auto-evaluación (todas las preguntas diligenciadas) antes de habilitarla'
+                                  : 'Habilitar'
+                              }
                               className="text-sky-600 hover:text-sky-800 disabled:cursor-not-allowed disabled:text-slate-300"
                             >
                               <ShieldCheck size={15} />
