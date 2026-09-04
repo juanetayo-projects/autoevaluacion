@@ -40,3 +40,17 @@ body {
     @apply w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs shadow-sm focus:border-azul focus:outline-none focus:ring-1 focus:ring-azul;
   }
 }
+
+/* Tema Azul + Celeste en toda barra de filtros (pedido 2026-09-04): fuera de
+   cualquier @layer a propósito, para que gane sobre las utilidades de
+   Tailwind (text-slate-600, border-slate-300) sin tener que tocar cada
+   página que arma sus filtros con <FilterBar>. */
+.filtros label > span:first-child {
+  color: var(--azul-2);
+}
+.filtros .campo {
+  border-color: #bae6fd;
+}
+.filtros .campo:focus {
+  border-color: var(--azul);
+}

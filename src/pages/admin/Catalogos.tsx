@@ -232,6 +232,7 @@ function ServiciosCatalogoTab({ resolucion }: { resolucion: ResolucionKey }) {
             setGrupoFiltro('')
           }}
           disabled={!busqueda && !grupoFiltro}
+          style={{ color: 'var(--azul-2)', borderColor: 'var(--azul-2)' }}
         >
           Limpiar filtros
         </Boton>

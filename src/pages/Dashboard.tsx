@@ -781,7 +781,13 @@ export default function Dashboard() {
                 <option value="no">No</option>
               </select>
             </label>
-            <Boton variante="secundario" onClick={limpiarFiltrosPanel} disabled={!hayFiltrosPanel} className="shrink-0">
+            <Boton
+              variante="secundario"
+              onClick={limpiarFiltrosPanel}
+              disabled={!hayFiltrosPanel}
+              className="shrink-0"
+              style={{ color: 'var(--azul-2)', borderColor: 'var(--azul-2)' }}
+            >
               Limpiar filtros
             </Boton>
           </FilterBar>
