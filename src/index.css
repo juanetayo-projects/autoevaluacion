@@ -3,11 +3,17 @@
 @theme {
   --color-azul: #0d2d6b;
   --color-azul2: #16468e;
+  /* Celeste (pedido 2026-09-04, "Propuesta 2 - Azul + Celeste Moderno"):
+     acento claro que acompaña al azul institucional en gráficas y datos
+     "secundarios" (ej. No habilitadas), sin tocar los colores semánticos
+     de cumplimiento (verde/rojo/ámbar), que siguen siendo universales. */
+  --color-celeste: #38bdf8;
 }
 
 :root {
   --azul: #0d2d6b;
   --azul-2: #16468e;
+  --celeste: #38bdf8;
 }
 
 html,

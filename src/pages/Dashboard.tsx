@@ -608,8 +608,8 @@ export default function Dashboard() {
                       >
                         {totalGauge > 0 ? (
                           [
-                            <Cell key="hab" fill="#059669" />,
-                            <Cell key="nohab" fill="#cbd5e1" />,
+                            <Cell key="hab" fill="#16468e" />,
+                            <Cell key="nohab" fill="#38bdf8" />,
                           ]
                         ) : (
                           <Cell key="vacio" fill="#e2e8f0" />
@@ -624,11 +624,11 @@ export default function Dashboard() {
                 </div>
                 <div className="mt-1 flex items-center justify-center gap-4 text-xs">
                   <span className="flex items-center gap-1.5 text-slate-600">
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-azul2" />
                     Habilitadas {totalGauge > 0 ? pctHabilitadasGauge : 0}%
                   </span>
                   <span className="flex items-center gap-1.5 text-slate-600">
-                    <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-celeste" />
                     No habilitadas {totalGauge > 0 ? 100 - pctHabilitadasGauge : 0}%
                   </span>
                 </div>
@@ -661,8 +661,8 @@ export default function Dashboard() {
                       <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                       <Tooltip content={<TooltipGrafica />} cursor={{ fill: '#f1f5f9' }} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="habilitadas" name="Habilitadas" fill="#0284c7" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
-                      <Bar dataKey="noHabilitadas" name="No habilitadas" fill="#cbd5e1" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                      <Bar dataKey="habilitadas" name="Habilitadas" fill="#16468e" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
+                      <Bar dataKey="noHabilitadas" name="No habilitadas" fill="#38bdf8" radius={[6, 6, 0, 0]} maxBarSize={40} isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
