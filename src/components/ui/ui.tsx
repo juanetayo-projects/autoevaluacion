@@ -67,11 +67,12 @@ export function FilterBar({
 }) {
   return (
     // Clase "filtros" (pedido 2026-09-04): marca cualquier barra de filtros
-    // de la app para que el tema Azul + Celeste (etiquetas, bordes de
+    // de la app para que el tema Azul + Celeste (fondo, etiquetas, bordes de
     // `.campo`) se aplique parejo en todas, sin repetir estilos página por
-    // página — ver reglas en index.css.
+    // página — ver reglas en index.css. Fondo celeste marcado (no blanco),
+    // según la referencia visual del cliente.
     <div
-      className={`filtros mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-300 bg-white p-3 shadow-md ${sticky ? 'sticky z-10' : ''} ${className}`}
+      className={`filtros mb-3 flex flex-wrap items-end gap-3 rounded-xl border border-sky-200 bg-sky-50 p-3 shadow-md ${sticky ? 'sticky z-10' : ''} ${className}`}
     >
       {children}
     </div>

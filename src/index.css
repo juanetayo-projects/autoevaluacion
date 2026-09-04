@@ -47,9 +47,11 @@ body {
    página que arma sus filtros con <FilterBar>. */
 .filtros label > span:first-child {
   color: var(--azul-2);
+  font-weight: 600;
 }
 .filtros .campo {
-  border-color: #bae6fd;
+  border-color: #7dd3fc;
+  background-color: #fff;
 }
 .filtros .campo:focus {
   border-color: var(--azul);

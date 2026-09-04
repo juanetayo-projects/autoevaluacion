@@ -786,7 +786,7 @@ export default function Dashboard() {
               onClick={limpiarFiltrosPanel}
               disabled={!hayFiltrosPanel}
               className="shrink-0"
-              style={{ color: 'var(--azul-2)', borderColor: 'var(--azul-2)' }}
+              style={{ color: 'var(--azul-2)', backgroundColor: '#bae6fd', borderColor: '#bae6fd' }}
             >
               Limpiar filtros
             </Boton>
